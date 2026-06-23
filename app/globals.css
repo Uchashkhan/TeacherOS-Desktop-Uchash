@@ -1,0 +1,145 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+  overflow-x: hidden;
+}
+
+body {
+  margin: 0;
+  background: #070c34;
+  color: #f4f4f6;
+  font-family: "Noto Sans Bengali", "Noto Sans Bengali UI", "Hind Siliguri",
+    system-ui, sans-serif;
+  -webkit-tap-highlight-color: rgba(255, 255, 255, 0.14);
+}
+
+button {
+  background-color: transparent;
+  color: inherit;
+  font: inherit;
+  touch-action: manipulation;
+}
+
+@keyframes ui-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes ui-fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes ui-modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes ui-slide-panel {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes ai-shimmer {
+  0% {
+    background-position: 180% 0;
+  }
+
+  100% {
+    background-position: -180% 0;
+  }
+}
+
+.ui-fade-up {
+  animation: ui-fade-up 260ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.ui-fade-in {
+  animation: ui-fade-in 180ms ease-out both;
+}
+
+.ui-modal-in {
+  animation: ui-modal-in 240ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.ui-slide-panel {
+  animation: ui-slide-panel 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.ai-shimmer {
+  background-image: linear-gradient(
+    90deg,
+    #dedcff 0%,
+    #f7f6ff 48%,
+    #dedcff 100%
+  );
+  background-size: 220% 100%;
+  animation: ai-shimmer 1.35s ease-in-out infinite;
+}
+
+.ui-soft-press {
+  transition:
+    transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 180ms ease,
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    opacity 180ms ease;
+}
+
+.ui-soft-press:hover {
+  transform: translateY(-1px);
+}
+
+.ui-soft-press:active {
+  transform: translateY(0) scale(0.985);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
