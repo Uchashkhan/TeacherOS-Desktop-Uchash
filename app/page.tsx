@@ -63,8 +63,14 @@ const classTypeOptions = [
 
 type SidebarPanel = "subject" | "chapter" | "topic" | "duration" | "classType";
 type JourneyScreen = "prepare" | "setup" | "generating" | "lesson";
-type SetupStep = "subject" | "chapter" | "topic";
-type AiInteractionState = "idle" | "composer" | "typing" | "response";
+type SetupStep = "subject" | "chapter" | "topic" | "details";
+type AiInteractionState =
+  | "idle"
+  | "composer"
+  | "voice"
+  | "typing"
+  | "response"
+  | "errorTyping";
 
 const lessonSections = [
   {
@@ -159,6 +165,7 @@ type IconName =
   | "close"
   | "download"
   | "info"
+  | "image"
   | "lesson"
   | "mic"
   | "plus"
@@ -259,14 +266,18 @@ function Icon({
           <path d="M12 8h.01" />
         </svg>
       );
+    case "image":
+      return (
+        <svg {...common}>
+          <rect height="16" rx="3" width="18" x="3" y="4" />
+          <circle cx="8.5" cy="9" r="1.5" />
+          <path d="m21 15-4.5-4.5L9 18" />
+          <path d="m14 15 2-2 5 5" />
+        </svg>
+      );
     case "lesson":
       return (
-        <svg {...common} className={className} viewBox="0 0 48 48">
-          <rect fill="#c99a55" height="40" rx="9" stroke="none" width="34" x="7" y="4" />
-          <path d="M16 15h12M16 22h10M16 29h8" stroke="#7a5221" />
-          <path d="m31 34 7-7 3 3-7 7-5 2 2-5Z" fill="#2f80ed" stroke="#1f4f93" />
-          <path d="m35 25 2-2 3 3-2 2" stroke="#1f4f93" />
-        </svg>
+        <img alt="" aria-hidden="true" className={className} src="/lesson-plan-logo.svg" />
       );
     case "mic":
       return (
@@ -309,30 +320,11 @@ function Icon({
         </svg>
       );
     case "smart-book":
-      return (
-        <svg {...common}>
-          <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H12v17H6.5A2.5 2.5 0 0 0 4 22V5.5Z" fill="#75c4f2" stroke="#0e6fb9" />
-          <path d="M20 5.5A2.5 2.5 0 0 0 17.5 3H12v17h5.5A2.5 2.5 0 0 1 20 22V5.5Z" fill="#9bd9ff" stroke="#0e6fb9" />
-          <path d="M7 8h2.5M7 12h2.5M14.5 8H17M14.5 12H17" />
-        </svg>
-      );
+      return <img alt="" aria-hidden="true" className={className} src="/smart-book-logo.svg" />;
     case "quiz":
-      return (
-        <svg {...common}>
-          <circle cx="12" cy="12" r="8.5" fill="#fbe7b8" stroke="#00a9e8" />
-          <path d="M9.6 9.2a2.7 2.7 0 0 1 4.9 1.5c0 2.4-2.7 2.2-2.7 4.2" stroke="#d77a00" />
-          <path d="M12 18h.01" stroke="#d77a00" />
-          <path d="M8 3.8 5.5 2M16 3.8 18.5 2" />
-        </svg>
-      );
+      return <img alt="" aria-hidden="true" className={className} src="/quiz-logo.svg" />;
     case "video":
-      return (
-        <svg {...common}>
-          <rect fill="#ec4899" height="16" rx="3" stroke="#be185d" width="18" x="3" y="4" />
-          <path d="m10 8 5 4-5 4V8Z" fill="white" stroke="white" />
-          <path d="M6 4v16M18 4v16M3 8h3M3 16h3M18 8h3M18 16h3" stroke="white" />
-        </svg>
-      );
+      return <img alt="" aria-hidden="true" className={className} src="/smart-video-logo.svg" />;
     case "sparkle":
       return (
         <svg {...common}>
@@ -482,20 +474,33 @@ function SelectionIndicator({
 function OptionIcon({ type }: { type: "book" | "science" | "class" }) {
   if (type === "class") {
     return (
-      <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-[#f05252] text-sm font-bold leading-none text-white">
-        অ আ
-      </span>
+      <img
+        alt=""
+        aria-hidden="true"
+        className="size-10 shrink-0 object-contain"
+        src="/bangla-logo.svg"
+      />
+    );
+  }
+
+  if (type === "science") {
+    return (
+      <img
+        alt=""
+        aria-hidden="true"
+        className="size-10 shrink-0 object-contain"
+        src="/general-science-logo.svg"
+      />
     );
   }
 
   return (
-    <span
-      className={`grid size-10 shrink-0 place-items-center rounded-lg ${
-        type === "science" ? "bg-[#287f5f] text-[#7dd3fc]" : "bg-[#007f5f] text-[#f87171]"
-      }`}
-    >
-      <Icon className="size-6" name={type === "science" ? "science" : "book"} />
-    </span>
+    <img
+      alt=""
+      aria-hidden="true"
+      className="size-10 shrink-0 object-contain"
+      src="/chapter-selection-logo.svg"
+    />
   );
 }
 
@@ -883,6 +888,21 @@ function ThumbIcon({ direction }: { direction: "up" | "down" }) {
   );
 }
 
+function AiLogo({ className = "size-6" }: { className?: string }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={`relative inline-block overflow-visible ${className}`}
+    >
+      <img
+        alt=""
+        className="absolute inset-0 h-full w-full scale-[1.5] object-contain"
+        src="/ai-logo.svg"
+      />
+    </span>
+  );
+}
+
 function PromptStack({
   onAskAi,
   onPromptSelect,
@@ -925,7 +945,7 @@ function PromptStack({
           style={{ animationDelay: "150ms" }}
           type="button"
         >
-          <Icon className="size-5 shrink-0" name="sparkle" />
+          <AiLogo className="size-5 shrink-0" />
           AI - কে জিজ্ঞাসা করুন
         </button>
       </div>
@@ -947,7 +967,7 @@ function LessonStatusHeader({
     >
       <div className="flex min-w-0 items-center gap-4 text-lg font-bold">
         <div className="grid size-[58px] shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-[#ffe56a] via-[#008f67] to-[#111a6e] text-white shadow-glow">
-          <Icon className="size-8" name="sparkle" />
+          <AiLogo className="size-8" />
         </div>
         <span className="min-w-0 text-pretty">{label}</span>
       </div>
@@ -995,17 +1015,44 @@ function AiTypingPanel({ onInfo }: { onInfo: () => void }) {
   );
 }
 
+function VoiceWaveform() {
+  return (
+    <div className="flex h-7 items-center gap-1.5 text-primary-400">
+      {[12, 20, 28, 18, 24, 14, 30, 18, 22, 12].map((height, index) => (
+        <span
+          className="voice-bar w-1.5 rounded-full bg-current"
+          key={`${height}-${index}`}
+          style={{
+            animationDelay: `${index * 55}ms`,
+            height,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
 function AiComposer({
+  attachmentActive,
   input,
+  isVoiceMode,
   onChange,
   onClose,
+  onStartVoice,
   onSubmit,
+  onToggleAttachment,
 }: {
+  attachmentActive: boolean;
   input: string;
+  isVoiceMode: boolean;
   onChange: (value: string) => void;
   onClose: () => void;
+  onStartVoice: () => void;
   onSubmit: () => void;
+  onToggleAttachment: () => void;
 }) {
+  const hasInput = Boolean(input.trim());
+
   return (
     <form
       className="ui-fade-up fixed bottom-2.5 left-[300px] right-5 z-40 rounded-[30px] bg-[#070b34]/95 p-5 shadow-[0_0_38px_rgba(124,101,255,0.34)] backdrop-blur xl:left-[340px] xl:right-[50px]"
@@ -1016,42 +1063,74 @@ function AiComposer({
     >
       <div className="flex h-[59px] items-center gap-5">
         <button
-          aria-label="AI ইনপুট বন্ধ করুন"
-          className="ui-soft-press grid size-[59px] shrink-0 cursor-pointer place-items-center rounded-full bg-[#4b5362] text-white hover:bg-[#596273] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-          onClick={onClose}
+          aria-label={hasInput ? "AI ইনপুট মুছুন" : "ছবি যোগ করুন"}
+          className={`ui-soft-press grid size-[59px] shrink-0 cursor-pointer place-items-center rounded-full text-white hover:bg-[#596273] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${
+            attachmentActive ? "bg-primary-500" : "bg-[#4b5362]"
+          }`}
+          onClick={hasInput ? onClose : onToggleAttachment}
           type="button"
         >
-          <Icon className="size-7" name={input.trim() ? "close" : "plus"} />
+          <Icon className="size-7" name={hasInput ? "close" : "plus"} />
         </button>
-        <input
-          aria-label="AI-কে জিজ্ঞাসা করুন"
-          className="h-[59px] min-w-0 flex-1 rounded-full border border-[#7d8298] bg-[#34364a] px-7 text-lg font-semibold text-white outline-none transition placeholder:text-white/55 focus:border-white"
-          onChange={(event) => onChange(event.target.value)}
-          placeholder="AI-কে জিজ্ঞাসা করুন..."
-          value={input}
-        />
+        <div className="relative min-w-0 flex-1">
+          {attachmentActive ? (
+            <div className="ui-fade-up absolute -top-[70px] left-0 flex h-[58px] items-center gap-3 rounded-2xl border border-white/20 bg-[#34364a] px-4 text-white shadow-xl">
+              <div className="grid size-10 place-items-center rounded-xl bg-primary-500/20 text-primary-300">
+                <Icon className="size-6" name="image" />
+              </div>
+              <div className="text-sm font-bold leading-tight">
+                <p>বোর্ডের ছবি সংযুক্ত</p>
+                <p className="text-white/60">lesson-reference.png</p>
+              </div>
+            </div>
+          ) : null}
+          {isVoiceMode ? (
+            <div className="flex h-[59px] items-center justify-between rounded-full border border-[#7d8298] bg-[#34364a] px-7 text-lg font-semibold text-white">
+              <span>ভয়েস শোনা হচ্ছে...</span>
+              <VoiceWaveform />
+            </div>
+          ) : (
+            <input
+              aria-label="AI-কে জিজ্ঞাসা করুন"
+              className="h-[59px] w-full min-w-0 rounded-full border border-[#7d8298] bg-[#34364a] px-7 text-lg font-semibold text-white outline-none transition placeholder:text-white/55 focus:border-white"
+              onChange={(event) => onChange(event.target.value)}
+              placeholder="AI-কে জিজ্ঞাসা করুন..."
+              value={input}
+            />
+          )}
+        </div>
         <button
-          aria-label={input.trim() ? "প্রশ্ন পাঠান" : "ভয়েস ইনপুট"}
+          aria-label={hasInput ? "প্রশ্ন পাঠান" : "ভয়েস ইনপুট"}
           className="ui-soft-press grid size-[59px] shrink-0 cursor-pointer place-items-center rounded-full bg-primary-500 text-white shadow-glow hover:bg-[#087252] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-          type="submit"
+          onClick={hasInput ? undefined : onStartVoice}
+          type={hasInput ? "submit" : "button"}
         >
-          <Icon className="size-7" name={input.trim() ? "send" : "mic"} />
+          <Icon className="size-7" name={hasInput ? "send" : "mic"} />
         </button>
       </div>
     </form>
   );
 }
 
-function AiResponseCard({ prompt }: { prompt: string }) {
+function AiResponseCard({
+  index,
+  prompt,
+}: {
+  index: number;
+  prompt: string;
+}) {
+  const isQuestionPrompt = prompt.includes("প্রশ্ন");
+  const isSimpleLanguagePrompt = prompt.includes("সহজ");
+
   return (
     <section className="ui-fade-up mt-7 rounded-[24px] bg-white px-8 py-7 text-grayui-900 shadow-[0_18px_42px_rgba(0,0,0,0.08)]">
       <div className="mb-5 flex items-start gap-4">
         <div className="grid size-12 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-[#ffe56a] via-[#008f67] to-[#111a6e] text-white shadow-glow">
-          <Icon className="size-7" name="sparkle" />
+          <AiLogo className="size-7" />
         </div>
         <div>
           <p className="text-sm font-bold uppercase tracking-wide text-primary-500">
-            AI উত্তর
+            AI উত্তর {index + 1}
           </p>
           <h3 className="mt-1 text-2xl font-bold leading-[1.35]">
             {prompt || "এই লেসন প্ল্যান আরও সহজভাবে সাজান।"}
@@ -1059,18 +1138,52 @@ function AiResponseCard({ prompt }: { prompt: string }) {
         </div>
       </div>
       <div className="space-y-4 text-xl leading-[1.55] text-grayui-800">
-        <p>
-          ক্লাসটি আরও অংশগ্রহণমূলক করতে শুরুতে বাস্তব উদাহরণ, মাঝখানে দলীয় কাজ,
-          এবং শেষে দ্রুত কুইজ রাখুন। এতে শিক্ষার্থীরা ধারণা বুঝবে এবং নিজেরা
-          প্রয়োগও করতে পারবে।
-        </p>
-        <ul className="list-disc space-y-2 pl-7">
-          <li>বোর্ডে বিদ্যুতের উৎসের তিনটি ভাগ লিখে উদাহরণ নিতে পারেন।</li>
-          <li>প্রতিটি দলকে একটি উৎস দিয়ে ব্যবহার ও সুবিধা ব্যাখ্যা করতে বলুন।</li>
-          <li>শেষে দুই মিনিটের ঝটপট প্রশ্ন দিয়ে শেখা যাচাই করুন।</li>
-        </ul>
+        {isQuestionPrompt ? (
+          <ol className="list-decimal space-y-2 pl-7">
+            <li>ব্যাটারি কীভাবে বিদ্যুতের উৎস হিসেবে কাজ করে?</li>
+            <li>জেনারেটর কেন যান্ত্রিক শক্তিকে বিদ্যুতে রূপান্তর করে?</li>
+            <li>সৌর প্যানেলে কোন শক্তি ব্যবহার করা হয়?</li>
+            <li>বিদ্যুৎ অপচয় কমাতে শিক্ষার্থীরা কী করতে পারে?</li>
+            <li>একটি বাড়িতে বিদ্যুতের সম্ভাব্য উৎসগুলো তুলনা করো।</li>
+          </ol>
+        ) : null}
+        {isSimpleLanguagePrompt ? (
+          <p>
+            কঠিন শব্দ বাদ দিয়ে বলতে পারেন: বিদ্যুৎ আসে কয়েকভাবে। ব্যাটারি ছোট
+            যন্ত্র চালায়, জেনারেটর বিদ্যুৎ বানায়, আর সূর্যের আলো থেকেও বিদ্যুৎ
+            তৈরি করা যায়। ক্লাসে এগুলো ছবি, প্রশ্ন আর দলীয় কাজ দিয়ে বোঝান।
+          </p>
+        ) : null}
+        {!isQuestionPrompt && !isSimpleLanguagePrompt ? (
+          <>
+            <p>
+              ক্লাসটি আরও অংশগ্রহণমূলক করতে শুরুতে বাস্তব উদাহরণ, মাঝখানে দলীয়
+              কাজ, এবং শেষে দ্রুত কুইজ রাখুন। এতে শিক্ষার্থীরা ধারণা বুঝবে এবং
+              নিজেরা প্রয়োগও করতে পারবে।
+            </p>
+            <ul className="list-disc space-y-2 pl-7">
+              <li>বোর্ডে বিদ্যুতের উৎসের তিনটি ভাগ লিখে উদাহরণ নিতে পারেন।</li>
+              <li>প্রতিটি দলকে একটি উৎস দিয়ে ব্যবহার ও সুবিধা ব্যাখ্যা করতে বলুন।</li>
+              <li>শেষে দুই মিনিটের ঝটপট প্রশ্ন দিয়ে শেখা যাচাই করুন।</li>
+            </ul>
+          </>
+        ) : null}
       </div>
     </section>
+  );
+}
+
+function AiResponseStack({ prompts }: { prompts: string[] }) {
+  return (
+    <div>
+      {prompts.map((prompt, index) => (
+        <AiResponseCard
+          index={index}
+          key={`${prompt}-${index}`}
+          prompt={prompt}
+        />
+      ))}
+    </div>
   );
 }
 
@@ -1127,8 +1240,11 @@ function ToastMessage({
   }, [onClose]);
 
   return (
-    <div className="ui-fade-up fixed left-1/2 top-24 z-[60] -translate-x-1/2 rounded-2xl border border-white/20 bg-[#2f3544] px-5 py-3 text-base font-bold text-white shadow-2xl">
-      {message}
+    <div className="ui-fade-up fixed left-1/2 top-5 z-[60] flex min-h-[76px] w-[528px] max-w-[calc(100vw-32px)] -translate-x-1/2 items-center gap-4 rounded-2xl border border-[#f3b5b5] bg-[#fff1f1] px-5 py-3 text-base font-bold text-[#9f1d1d] shadow-2xl">
+      <span className="grid size-10 shrink-0 place-items-center rounded-full bg-[#ffd8d8]">
+        <Icon className="size-5" name="info" />
+      </span>
+      <span>{message}</span>
     </div>
   );
 }
@@ -1323,6 +1439,40 @@ function LightOption({
   );
 }
 
+function DurationOption({
+  checked,
+  label,
+  onClick,
+}: {
+  checked: boolean;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      aria-pressed={checked}
+      className={`ui-soft-press flex h-[62px] w-full cursor-pointer items-center justify-center gap-3 rounded-[20px] border border-b-4 px-3 text-xl font-medium leading-[1.48] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 ${
+        checked
+          ? "border-[#1ca63e] bg-[#e8f6ec] text-grayui-950"
+          : "border-grayui-200 bg-white text-grayui-900 hover:border-grayui-300"
+      }`}
+      onClick={onClick}
+      type="button"
+    >
+      <span
+        className={`grid size-7 place-items-center rounded-full border-2 ${
+          checked
+            ? "border-[#25b11d] bg-[#25b11d] text-white"
+            : "border-[#007f5f] bg-white text-transparent"
+        }`}
+      >
+        {checked ? <Icon className="size-4" name="check" /> : null}
+      </span>
+      {label}
+    </button>
+  );
+}
+
 function FirstTimeSetupModal({
   onClose,
   onDone,
@@ -1335,6 +1485,10 @@ function FirstTimeSetupModal({
   const [selectedSubject, setSelectedSubject] = useState("");
   const [selectedChapter, setSelectedChapter] = useState("");
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
+  const [selectedDuration, setSelectedDuration] = useState("৪০ মিনিট");
+  const [selectedClassType, setSelectedClassType] = useState(
+    "শিক্ষার্থী সংখ্যা বেশি",
+  );
 
   const selectSubject = (className: string, subject: string) => {
     setSelectedClass(className);
@@ -1357,6 +1511,8 @@ function FirstTimeSetupModal({
         : [...current, topic],
     );
   };
+
+  const canGenerate = Boolean(selectedDuration && selectedClassType);
 
   if (step === "subject") {
     return (
@@ -1415,6 +1571,20 @@ function FirstTimeSetupModal({
     );
   }
 
+  if (step === "details") {
+    return (
+      <FirstTimeSetupDetailsStep
+        onBack={() => setStep("topic")}
+        onClose={onClose}
+        onDone={onDone}
+        selectedClassType={selectedClassType}
+        selectedDuration={selectedDuration}
+        setSelectedClassType={setSelectedClassType}
+        setSelectedDuration={setSelectedDuration}
+      />
+    );
+  }
+
   return (
     <ModalShell
       onBack={() => setStep("chapter")}
@@ -1439,11 +1609,105 @@ function FirstTimeSetupModal({
         <button
           className="sticky bottom-0 mt-auto flex min-h-[58px] w-full cursor-pointer items-center justify-center gap-3 rounded-2xl border border-b-4 border-primary-400 bg-primary-500 px-5 text-xl font-bold text-white shadow-[0_-18px_28px_rgba(255,255,255,0.95)] transition duration-200 hover:bg-[#087252] active:scale-[0.99] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 disabled:cursor-not-allowed disabled:opacity-50"
           disabled={selectedTopics.length === 0}
+          onClick={() => setStep("details")}
+          type="button"
+        >
+          এগিয়ে যান
+          <Icon className="size-6" name="arrow-curve" />
+        </button>
+      </div>
+    </ModalShell>
+  );
+}
+
+function FirstTimeSetupDetailsStep({
+  onBack,
+  onClose,
+  onDone,
+  selectedClassType,
+  selectedDuration,
+  setSelectedClassType,
+  setSelectedDuration,
+}: {
+  onBack: () => void;
+  onClose: () => void;
+  onDone: () => void;
+  selectedClassType: string;
+  selectedDuration: string;
+  setSelectedClassType: (value: string) => void;
+  setSelectedDuration: (value: string) => void;
+}) {
+  const canGenerate = Boolean(selectedDuration && selectedClassType);
+
+  return (
+    <ModalShell
+      onBack={onBack}
+      onClose={onClose}
+      scrollable
+      subtitle="আপনার প্রয়োজন অনুযায়ী সেরা লার্নিং প্ল্যানটি তৈরি করতে নিচের অপশনগুলো পূরণ করুন।"
+      title="ক্লাসের সময় ও ধরন বেছে নিন!"
+    >
+      <div className="relative flex min-h-[560px] flex-col">
+        <div className="flex flex-col gap-10 pb-28">
+          <section>
+            <h3 className="mb-4 text-[22px] font-bold leading-[1.48] text-grayui-950">
+              ক্লাসের সময়সীমা
+            </h3>
+            <div className="grid grid-cols-3 gap-4">
+              {durationOptions.map((option) => (
+                <DurationOption
+                  checked={selectedDuration === option}
+                  key={option}
+                  label={option}
+                  onClick={() => setSelectedDuration(option)}
+                />
+              ))}
+            </div>
+          </section>
+
+          <section>
+            <h3 className="mb-4 text-[22px] font-bold leading-[1.48] text-grayui-950">
+              ক্লাসের ধরন
+            </h3>
+            <div className="flex flex-col gap-4">
+              {classTypeOptions.map((option) => (
+                <button
+                  aria-pressed={selectedClassType === option}
+                  className={`ui-soft-press flex min-h-[64px] w-full cursor-pointer items-center gap-4 rounded-[18px] border border-b-4 px-5 py-3 text-left text-xl font-medium leading-[1.48] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 ${
+                    selectedClassType === option
+                      ? "border-[#1ca63e] bg-[#e8f6ec] text-grayui-950"
+                      : "border-grayui-200 bg-white text-grayui-900 hover:border-grayui-300"
+                  }`}
+                  key={option}
+                  onClick={() => setSelectedClassType(option)}
+                  type="button"
+                >
+                  <span
+                    className={`grid size-7 shrink-0 place-items-center rounded-full border-2 ${
+                      selectedClassType === option
+                        ? "border-[#25b11d] bg-[#25b11d] text-white"
+                        : "border-[#007f5f] bg-white text-transparent"
+                    }`}
+                  >
+                    {selectedClassType === option ? (
+                      <Icon className="size-4" name="check" />
+                    ) : null}
+                  </span>
+                  {option}
+                </button>
+              ))}
+            </div>
+          </section>
+        </div>
+
+        <button
+          className="sticky bottom-0 mt-auto flex min-h-[58px] w-full cursor-pointer items-center justify-center gap-3 rounded-2xl border border-b-4 border-[#bb7cff] bg-gradient-to-r from-[#f02fd7] to-[#6f00ff] px-5 text-xl font-bold text-white shadow-[0_-18px_28px_rgba(255,255,255,0.95)] transition duration-200 hover:brightness-110 active:scale-[0.99] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={!canGenerate}
           onClick={onDone}
           type="button"
         >
-          লেসন প্ল্যান তৈরি করুন
-          <Icon className="size-6" name="arrow-curve" />
+          <AiLogo className="size-6" />
+          জেনারেট করুন
         </button>
       </div>
     </ModalShell>
@@ -1516,19 +1780,11 @@ function GeneratingScreen({
       <section className="flex min-h-dvh items-center justify-center pl-[280px] pt-20 xl:pl-[320px]">
         <div className="ui-fade-up flex w-[481px] max-w-[calc(100vw-360px)] flex-col items-center gap-2.5 text-center">
           <div className="relative grid size-[400px] place-items-center">
-            <div className="absolute inset-0 rounded-full bg-[radial-gradient(circle,#7f52d8_0%,rgba(127,82,216,0.55)_24%,rgba(127,82,216,0.2)_43%,rgba(127,82,216,0)_65%)] blur-xl" />
-            <div className="absolute size-[172px] rounded-full bg-[radial-gradient(circle,#00140e_0%,#003525_62%,rgba(0,98,67,0)_72%)] shadow-[0_0_50px_rgba(150,95,255,0.8)]" />
-            <div className="relative grid size-[172px] place-items-center rounded-full">
-              <Icon
-                className="size-[150px] animate-spin text-white [animation-duration:2.4s]"
-                name="sparkle"
-              />
-              <div className="pointer-events-none absolute inset-[34px] rotate-45 rounded-[40%] bg-[linear-gradient(135deg,#fff176_0%,#ff8748_45%,#00a77a_76%,#7f64ff_100%)] opacity-90 blur-[1px]" />
-              <Icon
-                className="relative size-[150px] animate-spin text-white [animation-duration:2.4s]"
-                name="sparkle"
-              />
-            </div>
+            <img
+              alt=""
+              className="size-[330px] animate-spin object-contain [animation-duration:2.8s]"
+              src="/ai-loader-logo.svg"
+            />
           </div>
 
           <div className="flex w-full flex-col items-center gap-[7px] leading-[1.48]">
@@ -1549,7 +1805,8 @@ function GeneratedLessonScreen({ onBack }: { onBack: () => void }) {
   const [activePanel, setActivePanel] = useState<SidebarPanel | null>(null);
   const [aiState, setAiState] = useState<AiInteractionState>("idle");
   const [aiInput, setAiInput] = useState("");
-  const [lastPrompt, setLastPrompt] = useState("");
+  const [promptHistory, setPromptHistory] = useState<string[]>([]);
+  const [attachmentActive, setAttachmentActive] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
   const [toast, setToast] = useState("");
   const [selectedClass, setSelectedClass] = useState("ক্লাস ৬");
@@ -1571,16 +1828,32 @@ function GeneratedLessonScreen({ onBack }: { onBack: () => void }) {
   );
 
   useEffect(() => {
-    if (aiState !== "typing") {
+    if (aiState === "voice") {
+      const timeout = window.setTimeout(() => {
+        setAiInput("বোর্ডের ছবির সাথে মিলিয়ে ক্লাসের কার্যক্রম সাজান।");
+        setAttachmentActive(true);
+        setAiState("composer");
+      }, 1300);
+
+      return () => window.clearTimeout(timeout);
+    }
+
+    if (aiState !== "typing" && aiState !== "errorTyping") {
       return undefined;
     }
 
     const timeout = window.setTimeout(() => {
+      if (aiState === "errorTyping") {
+        setToast("AI উত্তর তৈরি করা যায়নি। আবার চেষ্টা করুন।");
+        setAiState(promptHistory.length ? "response" : "composer");
+        return;
+      }
+
       setAiState("response");
     }, 1300);
 
     return () => window.clearTimeout(timeout);
-  }, [aiState]);
+  }, [aiState, promptHistory.length]);
 
   const resetAfterSubject = () => {
     setSelectedChapter("");
@@ -1639,6 +1912,7 @@ function GeneratedLessonScreen({ onBack }: { onBack: () => void }) {
 
   const openComposer = (prompt = "") => {
     setAiInput(prompt);
+    setAttachmentActive(false);
     setAiState((current) => (current === "response" ? "response" : "composer"));
   };
 
@@ -1646,17 +1920,46 @@ function GeneratedLessonScreen({ onBack }: { onBack: () => void }) {
     const prompt = aiInput.trim();
 
     if (!prompt) {
-      setToast("প্রথমে একটি প্রশ্ন লিখুন।");
+      setToast("প্রথমে একটি প্রশ্ন লিখুন বা ভয়েস ইনপুট ব্যবহার করুন।");
       return;
     }
 
-    setLastPrompt(prompt);
+    if (prompt.toLowerCase().includes("error") || prompt.includes("এরর")) {
+      setAiState("errorTyping");
+      return;
+    }
+
+    setPromptHistory((current) => [...current, prompt]);
+    setAiInput("");
+    setAttachmentActive(false);
     setAiState("typing");
   };
 
   const closeComposer = () => {
     setAiInput("");
-    setAiState((current) => (current === "response" ? "response" : "idle"));
+    setAttachmentActive(false);
+    setAiState((current) =>
+      current === "response" || promptHistory.length ? "response" : "idle",
+    );
+  };
+
+  const startVoiceInput = () => {
+    setAiInput("");
+    setAttachmentActive(false);
+    setAiState("voice");
+  };
+
+  const toggleAttachment = () => {
+    setAttachmentActive((current) => {
+      const next = !current;
+
+      if (next && !aiInput.trim()) {
+        setAiInput("বোর্ডের ছবির সাথে মিলিয়ে ক্লাসের কার্যক্রম সাজান।");
+      }
+
+      return next;
+    });
+    setAiState("composer");
   };
 
   return (
@@ -1677,7 +1980,7 @@ function GeneratedLessonScreen({ onBack }: { onBack: () => void }) {
       ) : null}
       <div
         className={`mx-auto min-h-dvh w-full max-w-[1440px] overflow-visible pt-[82px] ${
-          aiState === "idle" ? "pb-16" : "pb-40"
+          aiState === "idle" ? "pb-16" : "pb-44"
         }`}
       >
         <TopBar onBack={onBack} />
@@ -1700,14 +2003,14 @@ function GeneratedLessonScreen({ onBack }: { onBack: () => void }) {
           />
           <div aria-hidden="true" className="w-[280px] shrink-0 xl:w-[320px]" />
           <div className="min-w-0 flex-1 max-w-[1060px]">
-            {aiState === "typing" ? (
+            {aiState === "typing" || aiState === "errorTyping" ? (
               <AiTypingPanel onInfo={() => setInfoOpen(true)} />
             ) : (
               <>
                 <LessonStatusHeader onInfo={() => setInfoOpen(true)} />
                 <LessonPlanCard />
-                {aiState === "response" ? (
-                  <AiResponseCard prompt={lastPrompt} />
+                {promptHistory.length ? (
+                  <AiResponseStack prompts={promptHistory} />
                 ) : null}
                 <PromptStack
                   onAskAi={() => openComposer()}
@@ -1720,10 +2023,14 @@ function GeneratedLessonScreen({ onBack }: { onBack: () => void }) {
       </div>
       {aiState !== "idle" ? (
         <AiComposer
+          attachmentActive={attachmentActive}
           input={aiInput}
+          isVoiceMode={aiState === "voice"}
           onChange={setAiInput}
           onClose={closeComposer}
+          onStartVoice={startVoiceInput}
           onSubmit={submitAiPrompt}
+          onToggleAttachment={toggleAttachment}
         />
       ) : null}
       {infoOpen ? <LessonInfoPopover onClose={() => setInfoOpen(false)} /> : null}
