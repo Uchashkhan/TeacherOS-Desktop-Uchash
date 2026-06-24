@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 
 const setupItems = [
   { id: "subject", label: "ক্লাস ও বিষয়", chip: "৬" },
@@ -62,7 +62,13 @@ const classTypeOptions = [
 ];
 
 type SidebarPanel = "subject" | "chapter" | "topic" | "duration" | "classType";
-type JourneyScreen = "prepare" | "setup" | "generating" | "lesson";
+type JourneyScreen =
+  | "prepare"
+  | "lessonSetup"
+  | "generating"
+  | "lesson"
+  | "smartVideoSetup"
+  | "smartVideo";
 type SetupStep = "subject" | "chapter" | "topic" | "details";
 type AiInteractionState =
   | "idle"
@@ -71,6 +77,8 @@ type AiInteractionState =
   | "typing"
   | "response"
   | "errorTyping";
+type PrepareCardId = "lessonPlan" | "smartVideo" | "smartBook" | "quiz";
+type SmartVideoTag = "অ্যানিমেটেড ভিডিয়ো" | "রেকর্ডেড ভিডিয়ো";
 
 const lessonSections = [
   {
@@ -119,22 +127,27 @@ const notebookImage = "/prepare-book.png";
 
 const prepareCards = [
   {
+    id: "lessonPlan" as const,
     title: "লেসন প্ল্যান",
     description: "AI-এর সাহায্যে দ্রুত ও সহজে আপনার ক্লাসের লেসন প্ল্যান তৈরি করুন",
     icon: "lesson",
     enabled: true,
   },
   {
+    id: "smartVideo" as const,
     title: "স্মার্ট ভিডিও",
     description: "বিষয়গুলো আরও সহজভাবে উপস্থাপনের জন্য প্রাসঙ্গিক ভিডিও দেখুন",
     icon: "video",
+    enabled: true,
   },
   {
+    id: "smartBook" as const,
     title: "স্মার্ট বুক",
     description: "বিষয়বস্তু পরিষ্কারভাবে বুঝতে ডিজিটাল বই ব্রাউজ করুন",
     icon: "smart-book",
   },
   {
+    id: "quiz" as const,
     title: "কুইজ",
     description: "AI-এর সাহায্যে সহজেই কুইজ তৈরি করে শিক্ষার্থীদের মূল্যায়ন করুন",
     icon: "quiz",
@@ -153,6 +166,52 @@ const firstTimeChapterOptions = [
   "শক্তি",
   "কাজ",
 ];
+
+const smartVideoTopicOptions = [
+  "বিদ্যুতের সংজ্ঞা",
+  "বিদ্যুতের ব্যবহার",
+  "বিদ্যুতের উৎস",
+  "বিদ্যুৎ সরবরাহ",
+  "বৈদ্যুতিক সরঞ্জাম",
+  "বিদ্যুৎ সাশ্রয়",
+  "বিদ্যুৎ অপচয়",
+  "নিরাপদ বিদ্যুৎ ব্যবহার",
+] as const;
+
+const smartVideoFilters = ["সব ভিডিও", "রেকর্ডেড ভিডিয়ো", "অ্যানিমেটেড ভিডিয়ো"] as const;
+
+const smartVideoVideoItems = [
+  {
+    title: "শক্তি কীভাবে রূপ বদলায়? শক্তি কীভাবে রূপ বদলায়?",
+    duration: "৩:৪০ মি.",
+    tag: "অ্যানিমেটেড ভিডিয়ো" as SmartVideoTag,
+    tone: "blue",
+  },
+  {
+    title: "শক্তির সংরক্ষণ এবং রূপান্তর সম্পর্কিত প্রশ্নোত্তর সেশন",
+    duration: "৩:৪০ মি.",
+    tag: "রেকর্ডেড ভিডিয়ো" as SmartVideoTag,
+    tone: "rose",
+  },
+  {
+    title: "শক্তির সংরক্ষণ এবং রূপান্তর সম্পর্কিত প্রশ্নোত্তর সেশন",
+    duration: "৩:৪০ মি.",
+    tag: "রেকর্ডেড ভিডিয়ো" as SmartVideoTag,
+    tone: "sage",
+  },
+  {
+    title: "শক্তি কীভাবে রূপ বদলায়? শক্তি কীভাবে রূপ বদলায়?",
+    duration: "৩:৪০ মি.",
+    tag: "অ্যানিমেটেড ভিডিয়ো" as SmartVideoTag,
+    tone: "blue",
+  },
+  {
+    title: "শক্তি কীভাবে রূপ বদলায়? শক্তি কীভাবে রূপ বদলায়?",
+    duration: "৩:৪০ মি.",
+    tag: "অ্যানিমেটেড ভিডিয়ো" as SmartVideoTag,
+    tone: "sand",
+  },
+] as const;
 
 type IconName =
   | "arrow-left"
@@ -471,7 +530,7 @@ function SelectionIndicator({
   );
 }
 
-function OptionIcon({ type }: { type: "book" | "science" | "class" }) {
+function OptionIcon({ type }: { type: "book" | "science" | "class" | "topic" }) {
   if (type === "class") {
     return (
       <img
@@ -494,6 +553,10 @@ function OptionIcon({ type }: { type: "book" | "science" | "class" }) {
     );
   }
 
+  if (type === "topic") {
+    return <SmartVideoTopicIcon />;
+  }
+
   return (
     <img
       alt=""
@@ -513,7 +576,7 @@ function PanelOption({
 }: {
   checked: boolean;
   children: React.ReactNode;
-  icon?: "book" | "science" | "class";
+  icon?: "book" | "science" | "class" | "topic";
   multiple?: boolean;
   onClick: () => void;
 }) {
@@ -1252,11 +1315,11 @@ function ToastMessage({
 function PrepareLanding({
   modalOpen,
   onBack,
-  onStartLessonPlan,
+  onStartJourney,
 }: {
   modalOpen?: boolean;
   onBack: () => void;
-  onStartLessonPlan: () => void;
+  onStartJourney: (cardId: PrepareCardId) => void;
 }) {
   return (
     <main className="relative min-h-dvh bg-[linear-gradient(161deg,#e3dbd9_14%,#c7dae0_94%)] font-bengali text-grayui-950">
@@ -1313,7 +1376,7 @@ function PrepareLanding({
                 <button
                   className="ui-fade-up ui-soft-press h-[278px] w-[295px] cursor-pointer rounded-[32px] border-2 border-b-[5px] border-white bg-[linear-gradient(115deg,#e1f1fe_9%,#f6f5fa_93%)] px-[25px] py-[30px] text-left hover:shadow-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
                   key={card.title}
-                  onClick={onStartLessonPlan}
+                  onClick={() => onStartJourney(card.id)}
                   style={{ animationDelay: `${index * 45}ms` }}
                   type="button"
                 >
@@ -1341,6 +1404,8 @@ function PrepareLanding({
 
 function ModalShell({
   children,
+  icon = "lesson",
+  label = "লেসন প্ল্যান",
   onBack,
   onClose,
   scrollable,
@@ -1348,6 +1413,8 @@ function ModalShell({
   title,
 }: {
   children: React.ReactNode;
+  icon?: "lesson" | "video";
+  label?: string;
   onBack?: () => void;
   onClose: () => void;
   scrollable?: boolean;
@@ -1356,7 +1423,7 @@ function ModalShell({
 }) {
   return (
     <div className="ui-fade-in fixed inset-0 z-50 grid place-items-center bg-black/50 px-4 py-6">
-      <section className="ui-modal-in flex max-h-[calc(100dvh-48px)] w-full max-w-[560px] flex-col overflow-hidden rounded-[32px] bg-white text-grayui-950 shadow-2xl">
+      <section className="ui-modal-in flex min-h-[min(520px,calc(100dvh-48px))] max-h-[calc(100dvh-48px)] w-full max-w-[560px] flex-col overflow-hidden rounded-[32px] bg-white text-grayui-950 shadow-2xl">
         <div className="flex items-start justify-between gap-5 border-b border-grayui-200 p-6">
           <div className="min-w-0 flex-1">
             {onBack ? (
@@ -1370,9 +1437,9 @@ function ModalShell({
               </button>
             ) : (
               <div className="mb-6 flex items-center gap-5">
-                <Icon className="size-10" name="lesson" />
+                <Icon className="size-10" name={icon} />
                 <p className="text-xl font-bold leading-[1.48] text-grayui-900">
-                  লেসন প্ল্যান
+                  {label}
                 </p>
               </div>
             )}
@@ -1593,7 +1660,7 @@ function FirstTimeSetupModal({
       subtitle="এক বা একাধিক টপিক নির্বাচন করে লেসন প্ল্যান তৈরি করুন"
       title="টপিক নির্বাচন করুন"
     >
-      <div className="relative flex min-h-[490px] flex-col">
+      <div className="flex flex-col">
         <div className="flex flex-col gap-4 pb-24">
           {topicOptions.map((option) => (
             <LightOption
@@ -1647,7 +1714,7 @@ function FirstTimeSetupDetailsStep({
       subtitle="আপনার প্রয়োজন অনুযায়ী সেরা লার্নিং প্ল্যানটি তৈরি করতে নিচের অপশনগুলো পূরণ করুন।"
       title="ক্লাসের সময় ও ধরন বেছে নিন!"
     >
-      <div className="relative flex min-h-[560px] flex-col">
+      <div className="flex flex-col">
         <div className="flex flex-col gap-10 pb-28">
           <section>
             <h3 className="mb-4 text-[22px] font-bold leading-[1.48] text-grayui-950">
@@ -1711,6 +1778,595 @@ function FirstTimeSetupDetailsStep({
         </button>
       </div>
     </ModalShell>
+  );
+}
+
+function SmartVideoTopicIcon() {
+  const clipId = useId();
+
+  return (
+    <svg
+      aria-hidden="true"
+      className="size-10 shrink-0"
+      fill="none"
+      viewBox="0 0 40 40"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <g clipPath={`url(#${clipId})`}>
+        <path
+          d="M27.4769 0H4.33396C3.59725 0 3 0.597255 3 1.33396V33.6073C3 34.7381 3.91671 35.6548 5.04753 35.6548H23.2889C26.3387 35.6548 28.811 33.1825 28.811 30.1328V1.33396C28.8109 0.597255 28.2136 0 27.4769 0Z"
+          fill="#006243"
+        />
+        <path
+          d="M3 20.668V33.6082C3 34.739 3.91671 35.6557 5.04753 35.6557H23.2889C26.3387 35.6557 28.811 33.1834 28.811 30.1337V20.668H3Z"
+          fill="url(#paint0_linear_469_144755)"
+        />
+        <path
+          d="M27.5575 40.0005H9.31608C8.18526 40.0005 7.26855 39.0837 7.26855 37.9529V5.67966C7.26855 4.94296 7.86581 4.3457 8.60252 4.3457H31.7455C32.4822 4.3457 33.0795 4.94296 33.0795 5.67966V34.4784C33.0795 37.5281 30.6072 40.0005 27.5575 40.0005Z"
+          fill="url(#paint1_linear_469_144755)"
+        />
+        <path
+          d="M7.26855 30.4863V37.9524C7.26855 39.0833 8.18526 40 9.31608 40H27.5575C30.6072 40 33.0795 37.5277 33.0795 34.4779V30.4863H7.26855Z"
+          fill="url(#paint2_linear_469_144755)"
+        />
+        <path
+          d="M11.3639 33.4961V37.9524C11.3639 39.0832 10.4472 39.9999 9.31641 39.9999H31.6528C34.7025 39.9999 37.1748 37.5276 37.1748 34.4779V33.4961C37.1748 32.7594 36.5776 32.1621 35.8409 32.1621H12.6979C11.9611 32.1621 11.3639 32.7594 11.3639 33.4961Z"
+          fill="url(#paint3_linear_469_144755)"
+        />
+        <path
+          d="M11.3639 33.4961V37.9524C11.3639 39.0832 10.4472 39.9999 9.31641 39.9999H31.6528C34.7025 39.9999 37.1748 37.5276 37.1748 34.4779V33.4961C37.1748 32.7594 36.5776 32.1621 35.8409 32.1621H12.6979C11.9611 32.1621 11.3639 32.7594 11.3639 33.4961Z"
+          fill="url(#paint4_linear_469_144755)"
+        />
+        <path
+          d="M29.3715 22.0256H11.8896C11.6135 22.0256 11.3896 21.8017 11.3896 21.5256V20.8438C11.3896 20.5676 11.6135 20.3438 11.8896 20.3438H29.3716C29.6478 20.3438 29.8716 20.5676 29.8716 20.8438V21.5256C29.8715 21.8016 29.6477 22.0256 29.3715 22.0256Z"
+          fill="url(#paint5_linear_469_144755)"
+        />
+        <path
+          d="M29.3715 25.6291H11.8896C11.6135 25.6291 11.3896 25.4052 11.3896 25.1291V24.4473C11.3896 24.1711 11.6135 23.9473 11.8896 23.9473H29.3716C29.6478 23.9473 29.8716 24.1711 29.8716 24.4473V25.1291C29.8715 25.4052 29.6477 25.6291 29.3715 25.6291Z"
+          fill="url(#paint6_linear_469_144755)"
+        />
+        <path
+          d="M24.9169 29.2306H11.8896C11.6135 29.2306 11.3896 29.0068 11.3896 28.7306V28.0488C11.3896 27.7727 11.6135 27.5488 11.8896 27.5488H24.9169C25.1931 27.5488 25.4169 27.7727 25.4169 28.0488V28.7306C25.4169 29.0068 25.193 29.2306 24.9169 29.2306Z"
+          fill="url(#paint7_linear_469_144755)"
+        />
+        <path
+          d="M19.8736 8.18164H12.7138C11.9825 8.18164 11.3896 8.7745 11.3896 9.5058V16.6656C11.3896 17.3969 11.9825 17.9897 12.7138 17.9897H19.8736C20.6049 17.9897 21.1977 17.3969 21.1977 16.6656V9.5058C21.1977 8.7745 20.6049 8.18164 19.8736 8.18164Z"
+          fill="#006243"
+        />
+      </g>
+      <defs>
+        <linearGradient
+          id="paint0_linear_469_144755"
+          gradientUnits="userSpaceOnUse"
+          x1="15.9055"
+          x2="15.9055"
+          y1="22.5313"
+          y2="33.9577"
+        >
+          <stop stopColor="#8A1958" stopOpacity="0" />
+          <stop offset="1" stopColor="#EF3D40" />
+        </linearGradient>
+        <linearGradient
+          id="paint1_linear_469_144755"
+          gradientUnits="userSpaceOnUse"
+          x1="4.17067"
+          x2="37.1397"
+          y1="5.96068"
+          y2="38.9297"
+        >
+          <stop stopColor="#EEF4FF" />
+          <stop offset="1" stopColor="#CFE7FD" />
+        </linearGradient>
+        <linearGradient
+          id="paint2_linear_469_144755"
+          gradientUnits="userSpaceOnUse"
+          x1="20.174"
+          x2="20.174"
+          y1="30.8854"
+          y2="40.7701"
+        >
+          <stop stopColor="#8AAADC" stopOpacity="0" />
+          <stop offset="1" stopColor="#8AAADC" />
+        </linearGradient>
+        <linearGradient
+          id="paint3_linear_469_144755"
+          gradientUnits="userSpaceOnUse"
+          x1="23.2456"
+          x2="23.2456"
+          y1="32.1621"
+          y2="39.7897"
+        >
+          <stop stopColor="#EEF4FF" />
+          <stop offset="1" stopColor="#CFE7FD" />
+        </linearGradient>
+        <linearGradient
+          id="paint4_linear_469_144755"
+          gradientUnits="userSpaceOnUse"
+          x1="23.2456"
+          x2="23.2456"
+          y1="35.7646"
+          y2="41.1855"
+        >
+          <stop stopColor="#8AAADC" stopOpacity="0" />
+          <stop offset="1" stopColor="#8AAADC" />
+        </linearGradient>
+        <linearGradient
+          id="paint5_linear_469_144755"
+          gradientUnits="userSpaceOnUse"
+          x1="11.3896"
+          x2="29.8715"
+          y1="21.1846"
+          y2="21.1846"
+        >
+          <stop stopColor="#5A5A5A" />
+          <stop offset="1" stopColor="#464646" />
+        </linearGradient>
+        <linearGradient
+          id="paint6_linear_469_144755"
+          gradientUnits="userSpaceOnUse"
+          x1="11.3896"
+          x2="29.8715"
+          y1="24.7881"
+          y2="24.7881"
+        >
+          <stop stopColor="#5A5A5A" />
+          <stop offset="1" stopColor="#464646" />
+        </linearGradient>
+        <linearGradient
+          id="paint7_linear_469_144755"
+          gradientUnits="userSpaceOnUse"
+          x1="11.3896"
+          x2="25.4169"
+          y1="28.3897"
+          y2="28.3897"
+        >
+          <stop stopColor="#5A5A5A" />
+          <stop offset="1" stopColor="#464646" />
+        </linearGradient>
+        <clipPath id={clipId}>
+          <rect width="40" height="40" fill="white" />
+        </clipPath>
+      </defs>
+    </svg>
+  );
+}
+
+function SmartVideoTopicOption({
+  label,
+  onClick,
+}: {
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      className="ui-soft-press flex h-[54px] w-full cursor-pointer items-center justify-between rounded-[15px] border border-b-4 border-grayui-300 bg-grayui-100 px-[15px] py-2 text-left text-xl font-medium leading-[1.48] text-grayui-950 hover:border-grayui-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+      onClick={onClick}
+      type="button"
+    >
+      <span className="flex min-w-0 items-center gap-5">
+        <SmartVideoTopicIcon />
+        <span className="truncate">{label}</span>
+      </span>
+      <Icon className="size-6 shrink-0 text-grayui-600" name="chevron-right" />
+    </button>
+  );
+}
+
+function SmartVideoFirstTimeModal({
+  onClose,
+  onDone,
+}: {
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const [step, setStep] = useState<Extract<SetupStep, "subject" | "chapter" | "topic">>(
+    "subject",
+  );
+  const [selectedClass, setSelectedClass] = useState("ক্লাস ৬");
+  const [selectedSubject, setSelectedSubject] = useState("");
+  const [selectedChapter, setSelectedChapter] = useState("");
+  const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
+
+  const selectSubject = (className: string, subject: string) => {
+    setSelectedClass(className);
+    setSelectedSubject(subject);
+    setSelectedChapter("");
+    setSelectedTopics([]);
+    setStep("chapter");
+  };
+
+  const selectChapter = (chapter: string) => {
+    setSelectedChapter(chapter);
+    setSelectedTopics([]);
+    setStep("topic");
+  };
+
+  const selectTopic = (topic: string) => {
+    setSelectedTopics([topic]);
+    onDone();
+  };
+
+  if (step === "subject") {
+    return (
+      <ModalShell
+        icon="video"
+        label="স্মার্ট ভিডিয়ো"
+        onClose={onClose}
+        subtitle="পরবর্তী ধাপে এগোতে একটি বিষয় নির্ধারণ করুন"
+        title="বিষয় নির্বাচন করুন"
+      >
+        <div className="flex flex-col gap-8">
+          {subjectGroups.map((group) => (
+            <section className="flex flex-col gap-5" key={group.title}>
+              <h3 className="text-2xl font-medium leading-[1.48] text-[#0e6fb9]">
+                {group.title}
+              </h3>
+              <div className="flex flex-col gap-5">
+                {group.options.map((option) => (
+                  <LightOption
+                    checked={selectedClass === group.title && selectedSubject === option}
+                    icon={option === "বিজ্ঞান" ? "science" : "class"}
+                    key={`${group.title}-${option}`}
+                    onClick={() => selectSubject(group.title, option)}
+                  >
+                    {option}
+                  </LightOption>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+      </ModalShell>
+    );
+  }
+
+  if (step === "chapter") {
+    return (
+      <ModalShell
+        icon="video"
+        label="স্মার্ট ভিডিয়ো"
+        onBack={() => setStep("subject")}
+        onClose={onClose}
+        scrollable
+        subtitle="পরবর্তী ধাপে এগোতে একটি অধ্যায় নির্ধারণ করুন"
+        title="অধ্যায় নির্বাচন করুন"
+      >
+        <div className="flex flex-col gap-4">
+          {firstTimeChapterOptions.map((option) => (
+            <LightOption
+              checked={selectedChapter === option}
+              icon="book"
+              key={option}
+              onClick={() => selectChapter(option)}
+            >
+              {option}
+            </LightOption>
+          ))}
+        </div>
+      </ModalShell>
+    );
+  }
+
+  return (
+    <ModalShell
+      icon="video"
+      label="স্মার্ট ভিডিয়ো"
+      onBack={() => setStep("chapter")}
+      onClose={onClose}
+      scrollable
+      subtitle="পরবর্তী ধাপে এগোতে একটি টপিক নির্ধারণ করুন"
+      title="টপিক নির্বাচন করুন"
+    >
+      <div className="flex flex-col gap-3">
+        {smartVideoTopicOptions.map((option, index) => (
+          <SmartVideoTopicOption
+            key={`${option}-${index}`}
+            label={option}
+            onClick={() => selectTopic(option)}
+          />
+        ))}
+      </div>
+    </ModalShell>
+  );
+}
+
+function SmartVideoTopBar({ onBack }: { onBack: () => void }) {
+  return (
+    <header className="fixed left-0 right-0 top-0 z-50 flex min-h-20 items-center justify-between gap-6 border-b-2 border-white/30 bg-primary-950 px-[50px] py-3 text-white">
+      <div className="flex min-w-0 items-center gap-4">
+        <IconButton label="পেছনে যান" onClick={onBack}>
+          <Icon className="size-9" name="arrow-left" />
+        </IconButton>
+        <h1 className="truncate text-2xl font-bold leading-[1.48]">স্মার্ট ভিডিয়ো</h1>
+      </div>
+      <div className="grid size-[55px] place-items-center overflow-hidden">
+        <Icon className="size-[55px]" name="video" />
+      </div>
+    </header>
+  );
+}
+
+function SmartVideoSetup({
+  activePanel,
+  onClosePanel,
+  onSelectChapter,
+  onSelectSubject,
+  onToggleTopic,
+  selectedChapter,
+  selectedClass,
+  selectedSubject,
+  selectedTopics,
+  setActivePanel,
+}: {
+  activePanel: Extract<SidebarPanel, "subject" | "chapter" | "topic"> | null;
+  onClosePanel: () => void;
+  onSelectChapter: (value: string) => void;
+  onSelectSubject: (className: string, subject: string) => void;
+  onToggleTopic: (value: string) => void;
+  selectedChapter: string;
+  selectedClass: string;
+  selectedSubject: string;
+  selectedTopics: string[];
+  setActivePanel: (panel: Extract<SidebarPanel, "subject" | "chapter" | "topic">) => void;
+}) {
+  const valuesByPanel = {
+    subject: selectedSubject,
+    chapter: selectedChapter || "নির্বাচন করুন",
+    topic: selectedTopics.length ? selectedTopics[0] : "নির্বাচন করুন",
+  };
+
+  return (
+    <div className="fixed left-[10px] top-[90px] z-20 flex h-[calc(100dvh-100px)]">
+      <aside className="h-full w-[300px] overflow-hidden rounded-l-[10px] border-r border-grayui-800 bg-primary-950 p-[15px]">
+        <h2 className="mb-[30px] text-lg font-bold leading-[1.48] text-grayui-100">
+          লেসন সেটআপ
+        </h2>
+        <div className="flex flex-col gap-5">
+          {setupItems.map((item) => (
+            <DropdownCard
+              active={activePanel === item.id}
+              chip={item.id === "subject" ? selectedClass.replace("ক্লাস ", "") : item.chip}
+              key={item.label}
+              label={item.label}
+              onClick={() =>
+                setActivePanel(item.id as Extract<SidebarPanel, "subject" | "chapter" | "topic">)
+              }
+              pill={false}
+              value={valuesByPanel[item.id as keyof typeof valuesByPanel]}
+            />
+          ))}
+        </div>
+      </aside>
+
+      {activePanel ? (
+        <aside className="ui-slide-panel h-full w-[318px] overflow-hidden rounded-r-[10px] border-l border-white/15 bg-primary-950 p-[15px]">
+          <div className="mb-8 flex items-center justify-between gap-4">
+            <h3 className="text-lg font-bold leading-[1.48] text-grayui-100">
+              {activePanel === "subject"
+                ? "ক্লাস ও বিষয়"
+                : activePanel === "chapter"
+                  ? "অধ্যায়"
+                  : "টপিক"}
+            </h3>
+            <button
+              aria-label="এক্সটেন্ডেড সাইডবার বন্ধ করুন"
+              className="grid size-10 shrink-0 cursor-pointer place-items-center rounded-full text-white transition duration-200 hover:bg-white/10 active:scale-[0.97] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+              onClick={onClosePanel}
+              type="button"
+            >
+              <Icon className="size-6" name="close" />
+            </button>
+          </div>
+          <div className="h-[calc(100%-72px)] overflow-y-auto pr-0.5">
+            {activePanel === "subject" ? (
+              <div className="flex flex-col gap-8">
+                {subjectGroups.map((group) => (
+                  <section className="flex flex-col gap-4" key={group.title}>
+                    <h4 className="text-[22px] font-bold leading-[1.48] text-[#0994ff]">
+                      {group.title}
+                    </h4>
+                    {group.options.map((option) => (
+                      <PanelOption
+                        checked={selectedClass === group.title && selectedSubject === option}
+                        icon={option === "বিজ্ঞান" ? "science" : "class"}
+                        key={`${group.title}-${option}`}
+                        onClick={() => onSelectSubject(group.title, option)}
+                      >
+                        {option}
+                      </PanelOption>
+                    ))}
+                  </section>
+                ))}
+              </div>
+            ) : null}
+            {activePanel === "chapter" ? (
+              <div className="flex flex-col gap-3.5">
+                {chapterOptions.map((option) => (
+                  <PanelOption
+                    checked={selectedChapter === option}
+                    icon="book"
+                    key={option}
+                    onClick={() => onSelectChapter(option)}
+                  >
+                    {option}
+                  </PanelOption>
+                ))}
+              </div>
+            ) : null}
+                {activePanel === "topic" ? (
+                  <div className="flex flex-col gap-3.5">
+                    {smartVideoTopicOptions.map((option, index) => (
+                      <PanelOption
+                        checked={selectedTopics.includes(option)}
+                        icon="topic"
+                        key={`${option}-${index}`}
+                        onClick={() => onToggleTopic(option)}
+                      >
+                        {option}
+                      </PanelOption>
+                    ))}
+                  </div>
+                ) : null}
+          </div>
+        </aside>
+      ) : null}
+    </div>
+  );
+}
+
+function SmartVideoFilter({
+  active,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      aria-pressed={active}
+      className={`ui-soft-press relative flex h-12 cursor-pointer items-center justify-center rounded-full px-4 text-[18px] transition duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 ${
+        active
+          ? "border border-b-4 border-[#2a9919] bg-white font-medium text-primary-500"
+          : "bg-white font-normal text-[#111] hover:bg-grayui-100"
+      }`}
+      onClick={onClick}
+      type="button"
+    >
+      {label}
+    </button>
+  );
+}
+
+function SmartVideoCard({
+  duration,
+  tag,
+  title,
+}: {
+  duration: string;
+  tag: SmartVideoTag;
+  title: string;
+  tone: "blue" | "rose" | "sage" | "sand";
+}) {
+  const tagClass =
+    tag === "অ্যানিমেটেড ভিডিয়ো"
+      ? "border-[#118be8] text-[#118be8]"
+      : "border-primary-500 text-primary-500";
+
+  return (
+    <article className="flex h-[146px] w-full max-w-[500px] items-center gap-3 overflow-hidden rounded-[32px] border-2 border-b-[5px] border-grayui-200 bg-white pr-4 shadow-[0_1px_1px_rgba(0,0,0,0.04),0_3px_3px_rgba(0,0,0,0.04)]">
+      <div className="relative flex h-[146px] w-[clamp(180px,48%,235px)] shrink-0 items-center justify-center rounded-l-[30px] bg-gradient-to-b from-[rgba(162,50,50,0.3)] to-[rgba(60,19,19,0.3)]">
+        <div className="grid size-[50px] place-items-center rounded-full border border-white/80 bg-white/25 text-white backdrop-blur-sm">
+          <svg aria-hidden="true" className="size-7 translate-x-0.5" fill="currentColor" viewBox="0 0 24 24">
+            <path d="m8 6 10 6-10 6V6Z" />
+          </svg>
+        </div>
+      </div>
+      <div className="flex h-[135px] min-w-0 flex-1 flex-col justify-center gap-[10px] py-[5px]">
+        <div className="flex min-w-0 flex-col gap-[5px]">
+          <span
+            className={`inline-flex h-8 max-w-full w-fit shrink-0 items-center justify-center rounded-full border px-3 text-[15px] font-medium leading-[1.4] ${tagClass}`}
+          >
+            {tag}
+          </span>
+          <h3 className="line-clamp-2 break-words text-[18px] font-bold leading-[1.48] text-[#222]">
+            {title}
+          </h3>
+        </div>
+        <div className="flex items-center gap-2 text-[16px] font-medium text-grayui-700">
+          <svg aria-hidden="true" className="size-5" fill="none" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="2" />
+            <path d="M12 7.8v4.9l3.2 2" stroke="currentColor" strokeLinecap="round" strokeWidth="2" />
+          </svg>
+          <span>{duration}</span>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function SmartVideoScreen({ onBack }: { onBack: () => void }) {
+  const [activePanel, setActivePanel] = useState<
+    Extract<SidebarPanel, "subject" | "chapter" | "topic"> | null
+  >(null);
+  const [selectedClass, setSelectedClass] = useState("ক্লাস ৬");
+  const [selectedSubject, setSelectedSubject] = useState("বিজ্ঞান");
+  const [selectedChapter, setSelectedChapter] = useState("বিদ্যুৎ");
+  const [selectedTopics, setSelectedTopics] = useState(["বিদ্যুতের উৎস"]);
+  const [activeFilter, setActiveFilter] = useState<(typeof smartVideoFilters)[number]>(
+    "সব ভিডিও",
+  );
+
+  const handleSelectSubject = (className: string, subject: string) => {
+    setSelectedClass(className);
+    setSelectedSubject(subject);
+    setSelectedChapter("");
+    setSelectedTopics([]);
+    setActivePanel("chapter");
+  };
+
+  const handleSelectChapter = (chapter: string) => {
+    setSelectedChapter(chapter);
+    setActivePanel("topic");
+  };
+
+  const handleToggleTopic = (topic: string) => {
+    setSelectedTopics([topic]);
+    setActivePanel(null);
+  };
+
+  const filteredVideos = smartVideoVideoItems.filter((video) =>
+    activeFilter === "সব ভিডিও" ? true : video.tag === activeFilter,
+  );
+
+  return (
+    <main className="min-h-dvh bg-[linear-gradient(180deg,#d8dddf_0%,#d5e0e6_100%)] font-bengali">
+      <SmartVideoTopBar onBack={onBack} />
+      <SmartVideoSetup
+        activePanel={activePanel}
+        onClosePanel={() => setActivePanel(null)}
+        onSelectChapter={handleSelectChapter}
+        onSelectSubject={handleSelectSubject}
+        onToggleTopic={handleToggleTopic}
+        selectedChapter={selectedChapter}
+        selectedClass={selectedClass}
+        selectedSubject={selectedSubject}
+        selectedTopics={selectedTopics}
+        setActivePanel={setActivePanel}
+      />
+
+      <section className="box-border w-full pl-[330px] pr-6 pt-[90px] lg:pr-[50px]">
+        <div className="w-full max-w-none">
+          <div className="mb-[30px] flex items-start justify-between gap-6">
+            <h2 className="text-[32px] font-bold leading-[1.48] text-grayui-900">
+              {selectedTopics[0] || "বিদ্যুতের উৎস"}
+            </h2>
+            <p className="pt-1 text-[18px] font-medium leading-[1.48] text-grayui-700">
+              {filteredVideos.length} টি ভিডিও
+            </p>
+          </div>
+
+          <div className="mb-6 flex flex-wrap gap-3">
+            {smartVideoFilters.map((filter) => (
+              <SmartVideoFilter
+                active={activeFilter === filter}
+                key={filter}
+                label={filter}
+                onClick={() => setActiveFilter(filter)}
+              />
+            ))}
+          </div>
+
+          <div className="grid w-full grid-cols-[repeat(auto-fit,minmax(400px,1fr))] gap-x-5 gap-y-5">
+            {filteredVideos.map((video, index) => (
+              <SmartVideoCard key={`${video.tag}-${video.title}-${index}`} {...video} />
+            ))}
+          </div>
+        </div>
+      </section>
+    </main>
   );
 }
 
@@ -2043,6 +2699,18 @@ function GeneratedLessonScreen({ onBack }: { onBack: () => void }) {
 
 export default function Page() {
   const [screen, setScreen] = useState<JourneyScreen>("prepare");
+
+  const startJourney = (cardId: PrepareCardId) => {
+    if (cardId === "lessonPlan") {
+      setScreen("lessonSetup");
+      return;
+    }
+
+    if (cardId === "smartVideo") {
+      setScreen("smartVideoSetup");
+    }
+  };
+
   const goBackFromPrepare = () => {
     if (typeof window !== "undefined" && window.history.length > 1) {
       window.history.back();
@@ -2065,17 +2733,27 @@ export default function Page() {
     return <GeneratedLessonScreen onBack={() => setScreen("prepare")} />;
   }
 
+  if (screen === "smartVideo") {
+    return <SmartVideoScreen onBack={() => setScreen("prepare")} />;
+  }
+
   return (
     <>
       <PrepareLanding
-        modalOpen={screen === "setup"}
+        modalOpen={screen === "lessonSetup" || screen === "smartVideoSetup"}
         onBack={goBackFromPrepare}
-        onStartLessonPlan={() => setScreen("setup")}
+        onStartJourney={startJourney}
       />
-      {screen === "setup" ? (
+      {screen === "lessonSetup" ? (
         <FirstTimeSetupModal
           onClose={() => setScreen("prepare")}
           onDone={() => setScreen("generating")}
+        />
+      ) : null}
+      {screen === "smartVideoSetup" ? (
+        <SmartVideoFirstTimeModal
+          onClose={() => setScreen("prepare")}
+          onDone={() => setScreen("smartVideo")}
         />
       ) : null}
     </>
