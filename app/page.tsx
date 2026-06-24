@@ -1,6 +1,51 @@
 "use client";
 
 import { useEffect, useId, useState } from "react";
+import loaderAnimation from "../Loader.json";
+
+const loaderAnimationData = loaderAnimation as any;
+const loaderAssetsById = new Map<string, any>(
+  (loaderAnimationData.assets as any[]).map((asset: any) => [asset.id, asset]),
+);
+
+function getLoaderAsset(id: string) {
+  return loaderAssetsById.get(id)?.p ?? "";
+}
+
+function LoaderAnimation() {
+  return (
+    <div className="lesson-loader relative grid aspect-square w-[min(400px,32vw)] min-w-[300px] place-items-center overflow-visible">
+      <img
+        alt=""
+        aria-hidden="true"
+        className="lesson-loader-halo absolute left-1/2 top-1/2 w-[74%] max-w-none -translate-x-1/2 -translate-y-1/2 select-none"
+        draggable={false}
+        src={getLoaderAsset("image_3")}
+      />
+      <img
+        alt=""
+        aria-hidden="true"
+        className="lesson-loader-glow absolute left-1/2 top-1/2 w-[42%] max-w-none -translate-x-1/2 -translate-y-1/2 select-none"
+        draggable={false}
+        src={getLoaderAsset("image_4")}
+      />
+      <img
+        alt=""
+        aria-hidden="true"
+        className="lesson-loader-star absolute left-1/2 top-1/2 w-[62%] max-w-none -translate-x-1/2 -translate-y-1/2 select-none"
+        draggable={false}
+        src={getLoaderAsset("image_2")}
+      />
+      <img
+        alt=""
+        aria-hidden="true"
+        className="lesson-loader-flare absolute left-1/2 top-1/2 w-[50%] max-w-none -translate-x-1/2 -translate-y-1/2 select-none"
+        draggable={false}
+        src={getLoaderAsset("image_1")}
+      />
+    </div>
+  );
+}
 
 const setupItems = [
   { id: "subject", label: "ক্লাস ও বিষয়", chip: "৬" },
@@ -2433,15 +2478,9 @@ function GeneratingScreen({
       <LoadingTopBar onBack={onBack} />
       <LoaderSetupSidebar />
 
-      <section className="flex min-h-dvh items-center justify-center pl-[280px] pt-20 xl:pl-[320px]">
-        <div className="ui-fade-up flex w-[481px] max-w-[calc(100vw-360px)] flex-col items-center gap-2.5 text-center">
-          <div className="relative grid size-[400px] place-items-center">
-            <img
-              alt=""
-              className="size-[330px] animate-spin object-contain [animation-duration:2.8s]"
-              src="/ai-loader-logo.svg"
-            />
-          </div>
+      <section className="absolute bottom-0 left-[280px] right-0 top-20 flex items-center justify-center xl:left-[320px]">
+        <div className="ui-fade-up -translate-y-14 flex w-[481px] max-w-[calc(100vw-360px)] flex-col items-center gap-3 text-center">
+          <LoaderAnimation />
 
           <div className="flex w-full flex-col items-center gap-[7px] leading-[1.48]">
             <h2 className="w-full text-2xl font-bold">
