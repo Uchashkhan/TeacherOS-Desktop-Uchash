@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import type { ReactNode } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import loaderAnimation from "../Loader.json";
 
 const loaderAnimationData = loaderAnimation as any;
@@ -124,6 +125,9 @@ type AiInteractionState =
   | "errorTyping";
 type PrepareCardId = "lessonPlan" | "smartVideo" | "smartBook" | "quiz";
 type SmartVideoTag = "অ্যানিমেটেড ভিডিয়ো" | "রেকর্ডেড ভিডিয়ো";
+type SmartVideoItem = (typeof smartVideoVideoItems)[number];
+type PlayerSettingsPanel = "root" | "resolution" | "speed";
+type SmartVideoAiTab = "understand" | "practice" | "instruction";
 
 const lessonSections = [
   {
@@ -258,6 +262,80 @@ const smartVideoVideoItems = [
   },
 ] as const;
 
+const smartVideoSegments = [
+  { title: "ভূমিকা: সমীকরণ কি?", duration: "০৪:৪২" },
+  { title: "পক্ষান্তর বিধি", duration: "০৪:৪২" },
+  { title: "এক চলকের সমীকরণ", duration: "০৪:৪২" },
+  { title: "দুই পাশে একই কাজ", duration: "০৪:৪২" },
+  { title: "অনুশীলন", duration: "০৪:৪২" },
+] as const;
+
+const smartVideoResolutionOptions = ["১০৮০ পি.", "৭২০ পি.", "৪৮০ পি.", "৩৬০ পি."] as const;
+const smartVideoSpeedOptions = ["০.৫x", "০.৭৫x", "১x (নরমাল)", "১.২৫x", "১.৫x", "২x"] as const;
+type SmartVideoSegment = (typeof smartVideoSegments)[number];
+const smartVideoYoutubeId = "ReA0QrTqmSg";
+
+type YoutubePlayerHandle = {
+  destroy: () => void;
+  getCurrentTime: () => number;
+  getDuration: () => number;
+  getPlaybackRate: () => number;
+  mute: () => void;
+  pauseVideo: () => void;
+  playVideo: () => void;
+  seekTo: (seconds: number, allowSeekAhead?: boolean) => void;
+  setPlaybackRate: (rate: number) => void;
+  unMute: () => void;
+};
+
+declare global {
+  interface Window {
+    YT?: {
+      Player: new (
+        element: HTMLElement,
+        options: {
+          events?: {
+            onReady?: () => void;
+            onStateChange?: (event: { data: number }) => void;
+          };
+          height?: string;
+          playerVars?: Record<string, number | string>;
+          videoId: string;
+          width?: string;
+        },
+      ) => YoutubePlayerHandle;
+    };
+    onYouTubeIframeAPIReady?: () => void;
+  }
+}
+
+const bengaliDigits = ["০", "১", "২", "৩", "৪", "৫", "৬", "৭", "৮", "৯"] as const;
+
+function toBengaliNumber(value: number) {
+  return String(value).replace(/\d/g, (digit) => bengaliDigits[Number(digit)] ?? digit);
+}
+
+function parseSegmentDuration(duration: string) {
+  const [minutes, seconds] = duration.split(":").map((part) => Number(part));
+  return minutes * 60 + seconds;
+}
+
+function formatPlayerTime(totalSeconds: number) {
+  const safeSeconds = Math.max(0, Math.floor(totalSeconds));
+  const minutes = Math.floor(safeSeconds / 60);
+  const seconds = safeSeconds % 60;
+  return `${toBengaliNumber(minutes).padStart(2, "০")}:${toBengaliNumber(seconds).padStart(2, "০")}`;
+}
+
+function parsePlaybackRate(speed: (typeof smartVideoSpeedOptions)[number]) {
+  if (speed.startsWith("০.৫")) return 0.5;
+  if (speed.startsWith("০.৭৫")) return 0.75;
+  if (speed.startsWith("১.২৫")) return 1.25;
+  if (speed.startsWith("১.৫")) return 1.5;
+  if (speed.startsWith("২")) return 2;
+  return 1;
+}
+
 type IconName =
   | "arrow-left"
   | "arrow-curve"
@@ -266,19 +344,31 @@ type IconName =
   | "chevron-right"
   | "chevron-up"
   | "check"
+  | "clock"
   | "close"
   | "download"
+  | "expand"
+  | "faders"
   | "info"
   | "image"
   | "lesson"
+  | "minimize"
   | "mic"
+  | "pause"
+  | "play"
+  | "play-circle"
   | "plus"
   | "science"
   | "send"
+  | "settings"
   | "smart-book"
   | "print"
   | "quiz"
+  | "skip-back"
+  | "skip-forward"
   | "sparkle"
+  | "volume"
+  | "volume-x"
   | "video";
 
 function Icon({
@@ -341,6 +431,13 @@ function Icon({
           <path d="m5 12 4 4L19 6" />
         </svg>
       );
+    case "clock":
+      return (
+        <svg {...common}>
+          <circle cx="12" cy="12" r="8.5" />
+          <path d="M12 7.5V12l3 2" />
+        </svg>
+      );
     case "close":
       return (
         <svg {...common}>
@@ -360,6 +457,30 @@ function Icon({
           <path d="M12 3v12" />
           <path d="m7 10 5 5 5-5" />
           <path d="M5 21h14" />
+        </svg>
+      );
+    case "expand":
+      return (
+        <svg {...common}>
+          <path d="M8 3H3v5" />
+          <path d="M16 3h5v5" />
+          <path d="M21 16v5h-5" />
+          <path d="M3 16v5h5" />
+          <path d="M3 3l6 6" />
+          <path d="m15 9 6-6" />
+          <path d="m21 21-6-6" />
+          <path d="m9 15-6 6" />
+        </svg>
+      );
+    case "faders":
+      return (
+        <svg {...common}>
+          <path d="M4 7h4" />
+          <path d="M14 7h6" />
+          <path d="M10 5v4" />
+          <path d="M4 17h9" />
+          <path d="M17 17h3" />
+          <path d="M15 15v4" />
         </svg>
       );
     case "info":
@@ -390,6 +511,35 @@ function Icon({
           <path d="M19 11a7 7 0 0 1-14 0" />
           <path d="M12 18v3" />
           <path d="M8 21h8" />
+        </svg>
+      );
+    case "minimize":
+      return (
+        <svg {...common}>
+          <path d="M9 3v6H3" />
+          <path d="M15 3v6h6" />
+          <path d="M15 21v-6h6" />
+          <path d="M9 21v-6H3" />
+        </svg>
+      );
+    case "pause":
+      return (
+        <svg {...common} fill="currentColor" stroke="none">
+          <rect height="14" rx="1.5" width="4" x="7" y="5" />
+          <rect height="14" rx="1.5" width="4" x="13" y="5" />
+        </svg>
+      );
+    case "play":
+      return (
+        <svg {...common} fill="currentColor" stroke="none">
+          <path d="m8 5 11 7-11 7V5Z" />
+        </svg>
+      );
+    case "play-circle":
+      return (
+        <svg {...common}>
+          <circle cx="12" cy="12" r="9" />
+          <path d="m10 8 6 4-6 4V8Z" fill="currentColor" stroke="none" />
         </svg>
       );
     case "plus":
@@ -423,10 +573,33 @@ function Icon({
           <path d="M22 2 11 13" />
         </svg>
       );
+    case "settings":
+      return (
+        <svg {...common}>
+          <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" />
+          <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 0 1-4 0v-.09a1.7 1.7 0 0 0-1-1.55 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.55-1H3a2 2 0 0 1 0-4h.09a1.7 1.7 0 0 0 1.55-1 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.55V3a2 2 0 0 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9c.12.37.45.7 1.55 1H21a2 2 0 0 1 0 4h-.09a1.7 1.7 0 0 0-1.55 1Z" />
+        </svg>
+      );
     case "smart-book":
       return <img alt="" aria-hidden="true" className={className} src="/smart-book-logo.svg" />;
     case "quiz":
       return <img alt="" aria-hidden="true" className={className} src="/quiz-logo.svg" />;
+    case "skip-back":
+      return (
+        <svg {...common}>
+          <path d="M19 5v14" />
+          <path d="m15 6-8 6 8 6V6Z" />
+          <path d="M5 8v8" />
+        </svg>
+      );
+    case "skip-forward":
+      return (
+        <svg {...common}>
+          <path d="M5 5v14" />
+          <path d="m9 6 8 6-8 6V6Z" />
+          <path d="M19 8v8" />
+        </svg>
+      );
     case "video":
       return <img alt="" aria-hidden="true" className={className} src="/smart-video-logo.svg" />;
     case "sparkle":
@@ -434,6 +607,22 @@ function Icon({
         <svg {...common}>
           <path d="M12 2.5 14.7 9l6.8 3-6.8 3L12 21.5 9.3 15l-6.8-3 6.8-3L12 2.5Z" />
           <path d="M19 3v4M21 5h-4" />
+        </svg>
+      );
+    case "volume":
+      return (
+        <svg {...common}>
+          <path d="M4 9v6h4l5 4V5L8 9H4Z" />
+          <path d="M16 9.5a4 4 0 0 1 0 5" />
+          <path d="M18.5 7a7.5 7.5 0 0 1 0 10" />
+        </svg>
+      );
+    case "volume-x":
+      return (
+        <svg {...common}>
+          <path d="M4 9v6h4l5 4V5L8 9H4Z" />
+          <path d="m17 9 4 4" />
+          <path d="m21 9-4 4" />
         </svg>
       );
   }
@@ -2287,10 +2476,12 @@ function SmartVideoFilter({
 
 function SmartVideoCard({
   duration,
+  onSelect,
   tag,
   title,
 }: {
   duration: string;
+  onSelect: () => void;
   tag: SmartVideoTag;
   title: string;
   tone: "blue" | "rose" | "sage" | "sand";
@@ -2301,12 +2492,14 @@ function SmartVideoCard({
       : "border-primary-500 text-primary-500";
 
   return (
-    <article className="flex h-[146px] w-full max-w-[500px] items-center gap-3 overflow-hidden rounded-[32px] border-2 border-b-[5px] border-grayui-200 bg-white pr-4 shadow-[0_1px_1px_rgba(0,0,0,0.04),0_3px_3px_rgba(0,0,0,0.04)]">
+    <button
+      className="ui-soft-press flex h-[146px] w-full max-w-[500px] cursor-pointer items-center gap-3 overflow-hidden rounded-[32px] border-2 border-b-[5px] border-grayui-200 bg-white pr-4 text-left shadow-[0_1px_1px_rgba(0,0,0,0.04),0_3px_3px_rgba(0,0,0,0.04)] hover:border-primary-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+      onClick={onSelect}
+      type="button"
+    >
       <div className="relative flex h-[146px] w-[clamp(180px,48%,235px)] shrink-0 items-center justify-center rounded-l-[30px] bg-gradient-to-b from-[rgba(162,50,50,0.3)] to-[rgba(60,19,19,0.3)]">
         <div className="grid size-[50px] place-items-center rounded-full border border-white/80 bg-white/25 text-white backdrop-blur-sm">
-          <svg aria-hidden="true" className="size-7 translate-x-0.5" fill="currentColor" viewBox="0 0 24 24">
-            <path d="m8 6 10 6-10 6V6Z" />
-          </svg>
+          <Icon className="size-7 translate-x-0.5" name="play" />
         </div>
       </div>
       <div className="flex h-[135px] min-w-0 flex-1 flex-col justify-center gap-[10px] py-[5px]">
@@ -2321,14 +2514,1754 @@ function SmartVideoCard({
           </h3>
         </div>
         <div className="flex items-center gap-2 text-[16px] font-medium text-grayui-700">
-          <svg aria-hidden="true" className="size-5" fill="none" viewBox="0 0 24 24">
-            <circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="2" />
-            <path d="M12 7.8v4.9l3.2 2" stroke="currentColor" strokeLinecap="round" strokeWidth="2" />
-          </svg>
+          <Icon className="size-5" name="clock" />
           <span>{duration}</span>
         </div>
       </div>
-    </article>
+    </button>
+  );
+}
+
+function PlayerIconButton({
+  active,
+  label,
+  name,
+  onClick,
+  size = "md",
+}: {
+  active?: boolean;
+  label: string;
+  name: IconName;
+  onClick: () => void;
+  size?: "sm" | "md" | "lg";
+}) {
+  const sizeClass = size === "lg" ? "size-20" : size === "sm" ? "size-10" : "size-12";
+  const iconSize = size === "lg" ? "size-9" : size === "sm" ? "size-5" : "size-6";
+
+  return (
+    <button
+      aria-label={label}
+      aria-pressed={active}
+      className={`ui-soft-press grid ${sizeClass} cursor-pointer place-items-center rounded-full bg-black/28 text-white backdrop-blur-md hover:bg-black/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${
+        active ? "ring-2 ring-white/60" : ""
+      }`}
+      onClick={onClick}
+      type="button"
+    >
+      <Icon className={iconSize} name={name} />
+    </button>
+  );
+}
+
+function SmartVideoBackdrop() {
+  return (
+    <>
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_48%_38%,rgba(53,161,180,0.35)_0%,rgba(12,31,56,0.2)_26%,rgba(4,11,24,0.95)_72%),linear-gradient(90deg,#0d1c34_0%,#122c48_58%,#061123_100%)]" />
+      <div className="absolute inset-x-[8%] top-[12%] h-[52%] rounded-full bg-white/5 blur-3xl" />
+      <div className="absolute bottom-0 left-[42%] h-[68%] w-[22%] rounded-t-full bg-[linear-gradient(180deg,#284c68_0%,#10253b_100%)] shadow-[0_0_0_14px_rgba(255,255,255,0.03)]" />
+      <div className="absolute bottom-[18%] left-[37%] h-[16%] w-[32%] rounded-full bg-[#1a3852]/80 blur-sm" />
+      <div className="absolute bottom-[18%] left-[46%] h-[26%] w-[10%] rounded-t-full bg-[#1f5a78]" />
+      <div className="absolute bottom-[34%] left-[45.5%] size-[10%] rounded-full bg-[#c38d71]" />
+      <div className="absolute bottom-[24%] left-[43%] h-[20%] w-[16%] rounded-[45%] bg-[#123c60]" />
+    </>
+  );
+}
+
+function SmartVideoYouTubePlayer({
+  currentTime,
+  muted,
+  onDurationChange,
+  onPlayingChange,
+  onTimeChange,
+  playbackRate,
+  playing,
+  videoId,
+}: {
+  currentTime: number;
+  muted: boolean;
+  onDurationChange: (value: number) => void;
+  onPlayingChange: (value: boolean) => void;
+  onTimeChange: (value: number) => void;
+  playbackRate: number;
+  playing: boolean;
+  videoId: string;
+}) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const playerRef = useRef<YoutubePlayerHandle | null>(null);
+  const readyRef = useRef(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const createPlayer = () => {
+      if (cancelled || !containerRef.current || playerRef.current || !window.YT) return;
+
+      playerRef.current = new window.YT.Player(containerRef.current, {
+        height: "100%",
+        playerVars: {
+          autoplay: 0,
+          controls: 0,
+          disablekb: 1,
+          fs: 0,
+          modestbranding: 1,
+          playsinline: 1,
+          rel: 0,
+        },
+        videoId,
+        width: "100%",
+        events: {
+          onReady: () => {
+            if (!playerRef.current) return;
+            readyRef.current = true;
+            onDurationChange(playerRef.current.getDuration());
+            playerRef.current.seekTo(currentTime, true);
+            playerRef.current.setPlaybackRate(playbackRate);
+            if (muted) playerRef.current.mute();
+            else playerRef.current.unMute();
+            if (playing) playerRef.current.playVideo();
+            else playerRef.current.pauseVideo();
+          },
+          onStateChange: (event) => {
+            if (event.data === 0) onPlayingChange(false);
+            if (event.data === 1) onPlayingChange(true);
+            if (event.data === 2) onPlayingChange(false);
+          },
+        },
+      });
+    };
+
+    if (window.YT?.Player) {
+      createPlayer();
+    } else {
+      const scriptId = "youtube-iframe-api";
+      let script = document.getElementById(scriptId) as HTMLScriptElement | null;
+      if (!script) {
+        script = document.createElement("script");
+        script.id = scriptId;
+        script.src = "https://www.youtube.com/iframe_api";
+        document.body.appendChild(script);
+      }
+      const previousReady = window.onYouTubeIframeAPIReady;
+      window.onYouTubeIframeAPIReady = () => {
+        previousReady?.();
+        createPlayer();
+      };
+    }
+
+    return () => {
+      cancelled = true;
+      readyRef.current = false;
+      playerRef.current?.destroy();
+      playerRef.current = null;
+    };
+  }, [videoId]);
+
+  useEffect(() => {
+    if (!readyRef.current || !playerRef.current) return;
+    if (muted) playerRef.current.mute();
+    else playerRef.current.unMute();
+  }, [muted]);
+
+  useEffect(() => {
+    if (!readyRef.current || !playerRef.current) return;
+    const currentRate = playerRef.current.getPlaybackRate();
+    if (Math.abs(currentRate - playbackRate) > 0.001) {
+      playerRef.current.setPlaybackRate(playbackRate);
+    }
+  }, [playbackRate]);
+
+  useEffect(() => {
+    if (!readyRef.current || !playerRef.current) return;
+    if (playing) playerRef.current.playVideo();
+    else playerRef.current.pauseVideo();
+  }, [playing]);
+
+  useEffect(() => {
+    if (!readyRef.current || !playerRef.current) return;
+    const playerTime = playerRef.current.getCurrentTime();
+    if (Math.abs(playerTime - currentTime) > 1.2) {
+      playerRef.current.seekTo(currentTime, true);
+    }
+  }, [currentTime]);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      if (!readyRef.current || !playerRef.current) return;
+      onTimeChange(playerRef.current.getCurrentTime());
+      onDurationChange(playerRef.current.getDuration());
+    }, 250);
+
+    return () => window.clearInterval(intervalId);
+  }, [onDurationChange, onTimeChange]);
+
+  return (
+    <div className="absolute inset-0 overflow-hidden bg-[#071426]">
+      <div className="absolute inset-0 [&_iframe]:h-full [&_iframe]:w-full" ref={containerRef} />
+      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(5,9,19,0.42)_0%,rgba(5,9,19,0.08)_22%,rgba(5,9,19,0)_46%,rgba(5,9,19,0.18)_68%,rgba(5,9,19,0.46)_100%)]" />
+    </div>
+  );
+}
+
+function SmartVideoPlayerSurface({
+  controlsVisible,
+  currentTime,
+  duration,
+  compact = false,
+  isFullscreen,
+  muted,
+  onNextSegment,
+  onFullscreen,
+  onPreviousSegment,
+  onSeek,
+  onMute,
+  onSeekBackward,
+  onSeekForward,
+  onSettingsMouseEnter,
+  onSettingsMouseLeave,
+  onSettings,
+  onTogglePlay,
+  playing,
+  segmentLabel,
+  segmentStartOffsets,
+  settingsOpen,
+  videoLayer,
+}: {
+  controlsVisible: boolean;
+  currentTime: number;
+  duration: number;
+  compact?: boolean;
+  isFullscreen: boolean;
+  muted: boolean;
+  onNextSegment: () => void;
+  onFullscreen: () => void;
+  onPreviousSegment: () => void;
+  onSeek: (value: number) => void;
+  onMute: () => void;
+  onSeekBackward: () => void;
+  onSeekForward: () => void;
+  onSettingsMouseEnter: () => void;
+  onSettingsMouseLeave: () => void;
+  onSettings: () => void;
+  onTogglePlay: () => void;
+  playing: boolean;
+  segmentLabel: string;
+  segmentStartOffsets: readonly number[];
+  settingsOpen: boolean;
+  videoLayer?: ReactNode;
+}) {
+  const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
+
+  return (
+    <section
+      className={`relative overflow-hidden rounded-[20px] bg-[#071426] text-white shadow-[0_16px_44px_rgba(4,18,34,0.24)] ${
+        compact ? "h-full min-h-0 rounded-none" : "aspect-video w-full"
+      }`}
+    >
+      {videoLayer ?? <SmartVideoBackdrop />}
+
+      <div
+        className={`absolute right-7 top-7 flex gap-4 transition duration-200 ${
+          controlsVisible || settingsOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
+        }`}
+        onMouseEnter={onSettingsMouseEnter}
+        onMouseLeave={onSettingsMouseLeave}
+      >
+        <PlayerIconButton
+          label={isFullscreen ? "ফুলস্ক্রিন বন্ধ করুন" : "ফুলস্ক্রিন করুন"}
+          name={isFullscreen ? "minimize" : "expand"}
+          onClick={onFullscreen}
+          size="sm"
+        />
+        <PlayerIconButton
+          active={muted}
+          label={muted ? "সাউন্ড চালু করুন" : "সাউন্ড বন্ধ করুন"}
+          name={muted ? "volume-x" : "volume"}
+          onClick={onMute}
+          size="sm"
+        />
+        <PlayerIconButton
+          active={settingsOpen}
+          label="ভিডিয়ো সেটিংস"
+          name="settings"
+          onClick={onSettings}
+          size="sm"
+        />
+      </div>
+
+      <div className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-10">
+        <PlayerIconButton label="আগের অংশ" name="skip-back" onClick={onPreviousSegment} size="sm" />
+        <button
+          aria-label="১০ সেকেন্ড পিছিয়ে যান"
+          className="ui-soft-press grid size-12 cursor-pointer place-items-center rounded-full bg-black/32 text-[13px] font-bold text-white backdrop-blur-md hover:bg-black/44 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+          onClick={onSeekBackward}
+          type="button"
+        >
+          ১০
+        </button>
+        <PlayerIconButton
+          label={playing ? "পজ করুন" : "চালু করুন"}
+          name={playing ? "pause" : "play"}
+          onClick={onTogglePlay}
+          size="lg"
+        />
+        <button
+          aria-label="১০ সেকেন্ড এগিয়ে যান"
+          className="ui-soft-press grid size-12 cursor-pointer place-items-center rounded-full bg-black/32 text-[13px] font-bold text-white backdrop-blur-md hover:bg-black/44 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+          onClick={onSeekForward}
+          type="button"
+        >
+          ১০
+        </button>
+        <PlayerIconButton label="পরের অংশ" name="skip-forward" onClick={onNextSegment} size="sm" />
+      </div>
+
+      <div className="absolute inset-x-8 bottom-7">
+        <div className="mb-4 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <span className="rounded-full bg-black/36 px-3 py-1.5 text-base font-medium backdrop-blur">
+              {formatPlayerTime(currentTime)} / {formatPlayerTime(duration)}
+            </span>
+            <span className="rounded-full bg-white/80 px-3 py-1.5 text-base font-medium text-grayui-900 backdrop-blur">
+              <span className="mr-1 text-[#e2008d]">●</span>
+              {segmentLabel}
+            </span>
+          </div>
+          <PlayerIconButton
+            label={isFullscreen ? "ফুলস্ক্রিন বন্ধ করুন" : "ফুলস্ক্রিন করুন"}
+            name={isFullscreen ? "minimize" : "expand"}
+            onClick={onFullscreen}
+            size="md"
+          />
+        </div>
+        <div className="relative h-4">
+          <div className="absolute left-0 right-0 top-1/2 h-1 -translate-y-1/2 overflow-hidden rounded-full bg-white/60">
+            <div className="h-full rounded-full bg-[#e2008d]" style={{ width: `${progressPercent}%` }} />
+            {segmentStartOffsets.slice(1).map((offset) => (
+              <div
+                className="absolute top-0 h-full w-px bg-white/55"
+                key={offset}
+                style={{ left: `${(offset / duration) * 100}%` }}
+              />
+            ))}
+          </div>
+          <input
+            aria-label="ভিডিয়োর অবস্থান পরিবর্তন করুন"
+            className="absolute inset-0 z-10 cursor-pointer opacity-0"
+            max={duration}
+            min={0}
+            onChange={(event) => onSeek(Number(event.target.value))}
+            step={1}
+            type="range"
+            value={Math.min(currentTime, duration)}
+          />
+          <div
+            className="absolute top-1/2 z-[1] size-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-grayui-600 shadow"
+            style={{ left: `${progressPercent}%` }}
+          />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function SmartVideoSettingsMenu({
+  activePanel,
+  className = "",
+  onClose,
+  onPanelChange,
+  onResolutionChange,
+  onSpeedChange,
+  resolution,
+  speed,
+}: {
+  activePanel: PlayerSettingsPanel;
+  className?: string;
+  onClose: () => void;
+  onPanelChange: (panel: PlayerSettingsPanel) => void;
+  onResolutionChange: (value: (typeof smartVideoResolutionOptions)[number]) => void;
+  onSpeedChange: (value: (typeof smartVideoSpeedOptions)[number]) => void;
+  resolution: (typeof smartVideoResolutionOptions)[number];
+  speed: (typeof smartVideoSpeedOptions)[number];
+}) {
+  const options =
+    activePanel === "resolution" ? smartVideoResolutionOptions : smartVideoSpeedOptions;
+  const selectedValue = activePanel === "resolution" ? resolution : speed;
+
+  return (
+    <div className={`ui-modal-in absolute right-7 top-[72px] z-20 w-[380px] overflow-hidden rounded-2xl bg-white py-5 text-grayui-950 shadow-[0_24px_50px_rgba(0,0,0,0.2)] ${className}`}>
+      <div className="flex h-6 items-center justify-between px-5">
+        <button
+          className="ui-soft-press flex cursor-pointer items-center gap-2 text-base font-bold"
+          onClick={() => (activePanel === "root" ? onClose() : onPanelChange("root"))}
+          type="button"
+        >
+          {activePanel === "root" ? "ভিডিয়ো সেটিংস" : "ভিডিয়ো সেটিংস"}
+        </button>
+        <button
+          aria-label="ভিডিয়ো সেটিংস বন্ধ করুন"
+          className="grid size-8 cursor-pointer place-items-center rounded-full text-grayui-700 hover:bg-grayui-200"
+          onClick={onClose}
+          type="button"
+        >
+          <Icon className="size-5" name="close" />
+        </button>
+      </div>
+      <div className="my-4 h-px bg-grayui-200" />
+
+      {activePanel === "root" ? (
+        <div className="flex flex-col gap-3 px-5">
+          <button
+            className="ui-soft-press flex h-[52px] cursor-pointer items-center gap-3 rounded-xl bg-grayui-200 px-4 text-left"
+            onClick={() => onPanelChange("resolution")}
+            type="button"
+          >
+            <Icon className="size-5 text-grayui-900" name="faders" />
+            <span className="min-w-0 flex-1 text-base font-bold">ভিডিয়ো রেজুলেশন</span>
+            <span className="text-base font-medium">{resolution}</span>
+            <Icon className="size-5 text-grayui-700" name="chevron-right" />
+          </button>
+          <button
+            className="ui-soft-press flex h-[52px] cursor-pointer items-center gap-3 rounded-xl bg-grayui-200 px-4 text-left"
+            onClick={() => onPanelChange("speed")}
+            type="button"
+          >
+            <Icon className="size-5 text-grayui-900" name="play-circle" />
+            <span className="min-w-0 flex-1 text-base font-bold">প্লেব্যাক স্পিড</span>
+            <span className="text-base font-medium">{speed}</span>
+            <Icon className="size-5 text-grayui-700" name="chevron-right" />
+          </button>
+        </div>
+      ) : (
+        <div className="flex flex-col px-3">
+          {options.map((option) => (
+            <button
+              className={`ui-soft-press flex h-11 cursor-pointer items-center justify-between rounded-xl px-3 text-left text-base ${
+                option === selectedValue ? "bg-primary-50 font-bold text-primary-500" : "text-grayui-900 hover:bg-grayui-100"
+              }`}
+              key={option}
+              onClick={() => {
+                if (activePanel === "resolution") {
+                  onResolutionChange(option as (typeof smartVideoResolutionOptions)[number]);
+                } else {
+                  onSpeedChange(option as (typeof smartVideoSpeedOptions)[number]);
+                }
+                onPanelChange("root");
+              }}
+              type="button"
+            >
+              <span>{option}</span>
+              {option === selectedValue ? <Icon className="size-5" name="check" /> : null}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AiTimestampButton({
+  onClick,
+  segmentTitle,
+}: {
+  onClick: () => void;
+  segmentTitle: string;
+}) {
+  return (
+    <button
+      aria-label={`${segmentTitle} অংশের AI সহায়তা খুলুন`}
+      className="ui-soft-press grid size-10 shrink-0 cursor-pointer place-items-center rounded-[13px] bg-[#023d31] shadow-[0_6px_16px_rgba(0,52,42,0.28),0_0_14px_rgba(0,98,67,0.34)] hover:scale-[1.02] hover:bg-[#034b3d] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+      onClick={onClick}
+      type="button"
+    >
+      <img
+        alt=""
+        aria-hidden="true"
+        className="size-7 object-contain drop-shadow-[0_2px_6px_rgba(255,255,255,0.18)]"
+        src="/ai-logo.svg"
+      />
+    </button>
+  );
+}
+
+function SmartVideoSegmentList({
+  activeSegmentIndex,
+  onAiSegmentClick,
+  onSegmentSelect,
+}: {
+  activeSegmentIndex: number;
+  onAiSegmentClick: (segment: SmartVideoSegment) => void;
+  onSegmentSelect: (index: number) => void;
+}) {
+  return (
+    <aside className="h-fit overflow-hidden rounded-[20px] bg-white py-2.5 text-grayui-900 shadow-[0_1px_1px_rgba(0,0,0,0.04),0_12px_28px_rgba(28,40,50,0.08)]">
+      {smartVideoSegments.map((segment, index) => {
+        const active = index === activeSegmentIndex;
+
+        return (
+          <div
+            className={`flex h-[62px] w-full items-center gap-3 px-2.5 transition-colors duration-200 ${
+              active ? "bg-grayui-950/10" : "hover:bg-grayui-50"
+            }`}
+            key={segment.title}
+          >
+            <button
+              aria-current={active ? "true" : undefined}
+              className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+              onClick={() => onSegmentSelect(index)}
+              type="button"
+            >
+              <span
+                className={`grid size-10 shrink-0 place-items-center rounded-full transition-colors duration-200 ${
+                  active ? "bg-grayui-950 text-white" : "text-grayui-900"
+                }`}
+              >
+                <Icon className={`size-5 ${active ? "" : "translate-x-0.5"}`} name={active ? "pause" : "play"} />
+              </span>
+              <span className="rounded-md bg-grayui-200 px-1.5 py-0.5 text-sm font-medium leading-[1.4] text-grayui-700 [font-variant-numeric:tabular-nums]">
+                {segment.duration}
+              </span>
+              <span className="min-w-0 truncate text-base font-medium leading-[1.48]">
+                {segment.title}
+              </span>
+            </button>
+            {active ? (
+              <AiTimestampButton
+                onClick={() => onAiSegmentClick(segment)}
+                segmentTitle={segment.title}
+              />
+            ) : null}
+          </div>
+        );
+      })}
+    </aside>
+  );
+}
+
+function SmartVideoFullscreenSegmentButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      className="ui-soft-press flex h-12 cursor-pointer items-center gap-1 rounded-2xl bg-black/48 px-2.5 text-base font-medium text-white backdrop-blur-[10px] hover:bg-black/58 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+      onClick={onClick}
+      type="button"
+    >
+      <span className="grid size-8 place-items-center rounded-[12px] bg-[#023d31] shadow-[0_6px_16px_rgba(0,52,42,0.28),0_0_14px_rgba(0,98,67,0.34)]">
+        <img
+          alt=""
+          aria-hidden="true"
+          className="size-6 object-contain"
+          src="/ai-logo.svg"
+        />
+      </span>
+      <span>স্মার্ট ক্লাস</span>
+      <Icon className="size-4" name="chevron-right" />
+    </button>
+  );
+}
+
+function SmartVideoFullscreenTimeline({
+  currentTime,
+  duration,
+  onSeek,
+  segmentStartOffsets,
+}: {
+  currentTime: number;
+  duration: number;
+  onSeek: (value: number) => void;
+  segmentStartOffsets: readonly number[];
+}) {
+  const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
+
+  return (
+    <div className="relative h-6">
+      <div className="absolute left-0 right-0 top-1/2 h-1 -translate-y-1/2 overflow-hidden rounded-full bg-white/70">
+        <div className="h-full rounded-full bg-[#e2008d]" style={{ width: `${progressPercent}%` }} />
+        {segmentStartOffsets.slice(1).map((offset) => (
+          <div
+            className="absolute top-0 h-full w-px bg-white/55"
+            key={offset}
+            style={{ left: `${(offset / duration) * 100}%` }}
+          />
+        ))}
+      </div>
+      <input
+        aria-label="ভিডিয়োর অবস্থান পরিবর্তন করুন"
+        className="absolute inset-0 z-10 cursor-pointer opacity-0"
+        max={duration}
+        min={0}
+        onChange={(event) => onSeek(Number(event.target.value))}
+        step={1}
+        type="range"
+        value={Math.min(currentTime, duration)}
+      />
+      <div
+        className="absolute top-1/2 z-[1] size-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-4 border-white bg-grayui-600 shadow-[0_6px_16px_rgba(0,0,0,0.35)]"
+        style={{ left: `${progressPercent}%` }}
+      />
+    </div>
+  );
+}
+
+function SmartVideoFullscreenCenterControls({
+  onNextSegment,
+  onPreviousSegment,
+  onSeekBackward,
+  onSeekForward,
+  onTogglePlay,
+  playing,
+}: {
+  onNextSegment: () => void;
+  onPreviousSegment: () => void;
+  onSeekBackward: () => void;
+  onSeekForward: () => void;
+  onTogglePlay: () => void;
+  playing: boolean;
+}) {
+  return (
+    <div className="pointer-events-auto flex w-[580px] max-w-full items-center gap-16">
+      <PlayerIconButton label="আগের অংশ" name="skip-back" onClick={onPreviousSegment} size="md" />
+      <button
+        aria-label="১০ সেকেন্ড পিছিয়ে যান"
+        className="ui-soft-press grid size-16 cursor-pointer place-items-center rounded-[35px] bg-black/24 text-[17px] font-bold text-white backdrop-blur-[15px] hover:bg-black/34 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+        onClick={onSeekBackward}
+        type="button"
+      >
+        ১০
+      </button>
+      <button
+        aria-label={playing ? "পজ করুন" : "চালু করুন"}
+        aria-pressed={playing}
+        className="ui-soft-press grid size-[100px] cursor-pointer place-items-center rounded-full bg-black/42 text-white shadow-[0_18px_44px_rgba(0,0,0,0.34)] backdrop-blur-md hover:bg-black/54 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+        onClick={onTogglePlay}
+        type="button"
+      >
+        <Icon className="size-11" name={playing ? "pause" : "play"} />
+      </button>
+      <button
+        aria-label="১০ সেকেন্ড এগিয়ে যান"
+        className="ui-soft-press grid size-16 cursor-pointer place-items-center rounded-[35px] bg-black/24 text-[17px] font-bold text-white backdrop-blur-[15px] hover:bg-black/34 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+        onClick={onSeekForward}
+        type="button"
+      >
+        ১০
+      </button>
+      <PlayerIconButton label="পরের অংশ" name="skip-forward" onClick={onNextSegment} size="md" />
+    </div>
+  );
+}
+
+function SmartVideoFullscreenSegmentPanel({
+  activeSegmentIndex,
+  onAiSegmentClick,
+  onClose,
+  onSegmentSelect,
+}: {
+  activeSegmentIndex: number;
+  onAiSegmentClick: (segment: SmartVideoSegment) => void;
+  onClose: () => void;
+  onSegmentSelect: (index: number) => void;
+}) {
+  return (
+    <aside className="relative z-10 h-full w-[426px] shrink-0 bg-white text-grayui-900 shadow-[-18px_0_50px_rgba(0,0,0,0.26)]">
+      <header className="flex h-[68px] items-center justify-between border-b border-grayui-200 px-6">
+        <h2 className="text-xl font-bold">ভিডিয়োর সেগমেন্ট</h2>
+        <button
+          aria-label="সেগমেন্ট বন্ধ করুন"
+          className="ui-soft-press grid size-10 cursor-pointer place-items-center rounded-full text-grayui-700 hover:bg-grayui-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+          onClick={onClose}
+          type="button"
+        >
+          <Icon className="size-5" name="close" />
+        </button>
+      </header>
+      <div className="px-6 py-4">
+        <div className="overflow-hidden rounded-[20px] border border-grayui-100 bg-white shadow-[0_12px_28px_rgba(28,40,50,0.08)]">
+          {smartVideoSegments.map((segment, index) => {
+            const active = index === activeSegmentIndex;
+
+            return (
+              <div
+                className={`flex h-[64px] items-center gap-3 px-2.5 ${
+                  active ? "bg-grayui-950/10" : "hover:bg-grayui-50"
+                }`}
+                key={segment.title}
+              >
+                <button
+                  aria-current={active ? "true" : undefined}
+                  className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+                  onClick={() => onSegmentSelect(index)}
+                  type="button"
+                >
+                  <span
+                    className={`grid size-10 shrink-0 place-items-center rounded-full ${
+                      active ? "bg-grayui-950 text-white" : "text-grayui-900"
+                    }`}
+                  >
+                    <Icon className={`size-5 ${active ? "" : "translate-x-0.5"}`} name={active ? "pause" : "play"} />
+                  </span>
+                  <span className="rounded-md bg-grayui-200 px-1.5 py-0.5 text-sm font-medium leading-[1.4] text-grayui-700 [font-variant-numeric:tabular-nums]">
+                    {segment.duration}
+                  </span>
+                  <span className="min-w-0 truncate text-base font-medium leading-[1.48]">
+                    {segment.title}
+                  </span>
+                </button>
+                {active ? (
+                  <AiTimestampButton
+                    onClick={() => onAiSegmentClick(segment)}
+                    segmentTitle={segment.title}
+                  />
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+function SmartVideoFullscreenOverlay({
+  activeSegmentIndex,
+  controlsVisible,
+  currentTime,
+  duration,
+  muted,
+  onAiSegmentClick,
+  onExit,
+  onMute,
+  onNextSegment,
+  onSegmentSelect,
+  onPreviousSegment,
+  onSeek,
+  onSeekBackward,
+  onSeekForward,
+  onSettingsMouseEnter,
+  onSettingsMouseLeave,
+  onSettings,
+  onTogglePlay,
+  playing,
+  segmentLabel,
+  segmentStartOffsets,
+  segmentsOpen,
+  settingsMenu,
+  settingsOpen,
+  setSegmentsOpen,
+  videoLayer,
+}: {
+  activeSegmentIndex: number;
+  controlsVisible: boolean;
+  currentTime: number;
+  duration: number;
+  muted: boolean;
+  onAiSegmentClick: (segment: SmartVideoSegment) => void;
+  onExit: () => void;
+  onMute: () => void;
+  onNextSegment: () => void;
+  onSegmentSelect: (index: number) => void;
+  onPreviousSegment: () => void;
+  onSeek: (value: number) => void;
+  onSeekBackward: () => void;
+  onSeekForward: () => void;
+  onSettingsMouseEnter: () => void;
+  onSettingsMouseLeave: () => void;
+  onSettings: () => void;
+  onTogglePlay: () => void;
+  playing: boolean;
+  segmentLabel: string;
+  segmentStartOffsets: readonly number[];
+  segmentsOpen: boolean;
+  settingsMenu: ReactNode;
+  settingsOpen: boolean;
+  setSegmentsOpen: (value: boolean) => void;
+  videoLayer?: ReactNode;
+}) {
+  return (
+    <div className="fixed inset-0 z-[80] overflow-hidden bg-[#05070d] font-bengali text-white">
+      {videoLayer ?? <SmartVideoBackdrop />}
+      <div className="absolute inset-0 bg-black/20" />
+
+      {segmentsOpen ? (
+        <div className="relative z-10 flex h-full">
+          <div className="relative flex min-w-0 flex-1 justify-center px-[53px] py-[37px]">
+            <div className="relative flex h-full w-full max-w-[914px] flex-col">
+              <div className="flex h-12 items-center justify-between gap-6">
+                <h1 className="min-w-0 max-w-[580px] truncate text-[20px] font-bold leading-[1.48]">
+                  সেট ও ফাংশন কি, কাকে বলে, কত প্রকার, কি কি? জানুন ভিডিয়োতে ...
+                </h1>
+                <div
+                  className={`flex shrink-0 items-center gap-4 transition duration-200 ${
+                    controlsVisible || settingsOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
+                  }`}
+                  onMouseEnter={onSettingsMouseEnter}
+                  onMouseLeave={onSettingsMouseLeave}
+                >
+                  <PlayerIconButton label="ফুলস্ক্রিন বন্ধ করুন" name="minimize" onClick={onExit} size="sm" />
+                  <PlayerIconButton
+                    active={muted}
+                    label={muted ? "সাউন্ড চালু করুন" : "সাউন্ড বন্ধ করুন"}
+                    name={muted ? "volume-x" : "volume"}
+                    onClick={onMute}
+                    size="sm"
+                  />
+                  <PlayerIconButton
+                    active={settingsOpen}
+                    label="ভিডিয়ো সেটিংস"
+                    name="settings"
+                    onClick={onSettings}
+                    size="sm"
+                  />
+                </div>
+              </div>
+
+              <div className="grid flex-1 place-items-center">
+                <SmartVideoFullscreenCenterControls
+                  onNextSegment={onNextSegment}
+                  onPreviousSegment={onPreviousSegment}
+                  onSeekBackward={onSeekBackward}
+                  onSeekForward={onSeekForward}
+                  onTogglePlay={onTogglePlay}
+                  playing={playing}
+                />
+              </div>
+
+              <div className="pb-2">
+                <div className="mb-3 flex h-12 items-center justify-between gap-5">
+                  <div className="flex items-center gap-4">
+                    <span className="rounded-full bg-black/32 px-3 py-1.5 text-base font-medium backdrop-blur-[10px]">
+                      {formatPlayerTime(currentTime)} / {formatPlayerTime(duration)}
+                    </span>
+                    <span className="flex items-center gap-2 rounded-full border border-white/25 bg-white/72 pl-1.5 pr-2.5 py-[5px] text-base font-medium text-grayui-900 backdrop-blur-[10px]">
+                      <span className="text-[#f62b4d]">●</span>
+                      <span className="max-w-[187px] truncate opacity-80">{segmentLabel}</span>
+                      <Icon className="size-4 opacity-70" name="chevron-right" />
+                    </span>
+                  </div>
+                  <PlayerIconButton label="ফুলস্ক্রিন বন্ধ করুন" name="minimize" onClick={onExit} size="sm" />
+                </div>
+                <SmartVideoFullscreenTimeline
+                  currentTime={currentTime}
+                  duration={duration}
+                  onSeek={onSeek}
+                  segmentStartOffsets={segmentStartOffsets}
+                />
+              </div>
+              {settingsMenu}
+            </div>
+          </div>
+          <SmartVideoFullscreenSegmentPanel
+            activeSegmentIndex={activeSegmentIndex}
+            onAiSegmentClick={onAiSegmentClick}
+            onClose={() => setSegmentsOpen(false)}
+            onSegmentSelect={onSegmentSelect}
+          />
+        </div>
+      ) : (
+        <div className="relative z-10 mx-auto flex h-full w-full max-w-[1440px] flex-col px-[90px] py-8">
+          <div className="flex h-12 items-center justify-between gap-8">
+            <h1 className="min-w-0 max-w-[580px] truncate text-[20px] font-bold leading-[1.48]">
+              সেট ও ফাংশন কি, কাকে বলে, কত প্রকার, কি কি? জানুন ভিডিয়োতে ...
+            </h1>
+            <div
+              className={`flex shrink-0 items-center gap-4 transition duration-200 ${
+                controlsVisible || settingsOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
+              }`}
+              onMouseEnter={onSettingsMouseEnter}
+              onMouseLeave={onSettingsMouseLeave}
+            >
+              <PlayerIconButton label="ফুলস্ক্রিন বন্ধ করুন" name="minimize" onClick={onExit} size="sm" />
+              <PlayerIconButton
+                active={muted}
+                label={muted ? "সাউন্ড চালু করুন" : "সাউন্ড বন্ধ করুন"}
+                name={muted ? "volume-x" : "volume"}
+                onClick={onMute}
+                size="sm"
+              />
+              <PlayerIconButton
+                active={settingsOpen}
+                label="ভিডিয়ো সেটিংস"
+                name="settings"
+                onClick={onSettings}
+                size="sm"
+              />
+              <SmartVideoFullscreenSegmentButton onClick={() => setSegmentsOpen(true)} />
+            </div>
+          </div>
+
+          <div className="grid flex-1 place-items-center">
+            <SmartVideoFullscreenCenterControls
+              onNextSegment={onNextSegment}
+              onPreviousSegment={onPreviousSegment}
+              onSeekBackward={onSeekBackward}
+              onSeekForward={onSeekForward}
+              onTogglePlay={onTogglePlay}
+              playing={playing}
+            />
+          </div>
+
+          <div className="pb-[34px]">
+            <div className="mb-3 flex h-12 items-center justify-between gap-5">
+              <div className="flex items-center gap-4">
+                <span className="rounded-full bg-black/32 px-3 py-1.5 text-base font-medium backdrop-blur-[10px]">
+                  {formatPlayerTime(currentTime)} / {formatPlayerTime(duration)}
+                </span>
+                <span className="flex items-center gap-2 rounded-full border border-white/25 bg-white/72 pl-1.5 pr-2.5 py-[5px] text-base font-medium text-grayui-900 backdrop-blur-[10px]">
+                  <span className="text-[#f62b4d]">●</span>
+                  <span className="max-w-[187px] truncate opacity-80">{segmentLabel}</span>
+                  <Icon className="size-4 opacity-70" name="chevron-right" />
+                </span>
+              </div>
+              <PlayerIconButton label="ফুলস্ক্রিন বন্ধ করুন" name="minimize" onClick={onExit} size="sm" />
+            </div>
+            <SmartVideoFullscreenTimeline
+              currentTime={currentTime}
+              duration={duration}
+              onSeek={onSeek}
+              segmentStartOffsets={segmentStartOffsets}
+            />
+          </div>
+          {settingsMenu}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const smartVideoAiContent: Record<
+  SmartVideoAiTab,
+  {
+    answer?: {
+      example: string[];
+      explanation: string[];
+      summary: string;
+    };
+    practice?: {
+      questions: SmartVideoPracticeQuestion[];
+    };
+    sections: Array<{ body: string; title: string }>;
+    suggestions: string[];
+  }
+> = {
+  understand: {
+    answer: {
+      summary:
+        "পক্ষান্তর বিধি মানে হলো সমীকরণের একপাশ থেকে কোনো পদ অন্যপাশে নেওয়া। এতে পদের সামনের চিহ্নটি বদলে যায় (যোগ থাকলে বিয়োগ, এবং বিয়োগ থাকলে যোগ হয়)।",
+      explanation: [
+        "পক্ষান্তর বিধি মানে হলো সমীকরণের একপাশ থেকে কোনো পদ অন্যপাশে নেওয়া। এতে পদের সামনের চিহ্নটি বদলে যায় (যোগ থাকলে বিয়োগ, এবং বিয়োগ থাকলে যোগ হয়)।",
+        "পক্ষান্তর বিধি মানে হলো সমীকরণের একপাশ থেকে কোনো পদ অন্যপাশে নেওয়া। এতে পদের সামনের চিহ্নটি বদলে যায় (যোগ থাকলে বিয়োগ, এবং বিয়োগ থাকলে যোগ হয়)।",
+      ],
+      example: [
+        "> $3x + 5 = 11$ হলে,",
+        "$+5$ ডানপাশে গিয়ে $-5$ হয়ে যাবে।",
+        "অর্থাৎ, $3x = 11 - 5$",
+      ],
+    },
+    sections: [],
+    suggestions: ["আরো সহজে বোঝাও", "ধাপে ধাপে দেখাও", "আরেকটি উদাহরণ দাও", "চিহ্ন পরিবর্তনের নিয়ম"],
+  },
+  practice: {
+    practice: {
+      questions: [
+        {
+          prompt:
+            "প্রশ্ন ১: যদি $x - 7 = 10$ হয়, তবে $-7$ কে সমান চিহ্নের ডানপাশে নিলে সেটি কী হবে?",
+          options: [
+            { label: "ক) X7", state: "wrong" },
+            { label: "খ) -7", state: "default" },
+            { label: "গ) -7", state: "default" },
+            { label: "ঘ) +7", state: "correct" },
+          ],
+          answerLabel: "ঘ) +7",
+          explanation:
+            "আবার ভেবে দেখো! পক্ষান্তর করলে পদের চিহ্ন উল্টে যায়। এখানে বিয়োগ ছিল, তাই ওপাশে গিয়ে সেটি যোগ হবে। আবার ভেবে দেখো! পক্ষান্তর করলে পদের চিহ্ন উল্টে যায়। এখানে বিয়োগ ছিল, তাই ওপাশে গিয়ে সেটি যোগ হবে।",
+          separator: true,
+        },
+        {
+          prompt:
+            "প্রশ্ন ২: যদি $x - 7 = 10$ হয়, তবে $-7$ কে সমান চিহ্নের ডানপাশে নিলে সেটি কী হবে?",
+          options: [
+            { label: "ক) X7", state: "default" },
+            { label: "খ) -7", state: "default" },
+            { label: "গ) -7", state: "default" },
+            { label: "ঘ) +7", state: "default" },
+          ],
+        },
+      ],
+    },
+    sections: [],
+    suggestions: ["একই রকম প্রশ্ন", "সহজ প্রশ্ন", "কঠিন প্রশ্ন"],
+  },
+  instruction: {
+    sections: [
+      {
+        title: "অনুধাবন:",
+        body: "আমি খেয়াল করেছি তুমি পক্ষান্তর করার সময় চিহ্নের পরিবর্তন (Sign Change) নিয়ে কিছুটা দ্বিধায় আছো। আমি খেয়াল করেছি তুমি পক্ষান্তর করার সময় চিহ্নের পরিবর্তন (Sign Change) নিয়ে কিছুটা দ্বিধায় আছো।",
+      },
+      {
+        title: "কারণ:",
+        body: "তুমি গত তিনটি প্র্যাকটিস প্রশ্নে যোগের বদলে বিয়োগ চিহ্ন ব্যবহার করেছো এবং এই অংশটি দুইবার রিক্যাপ করে দেখেছো। তুমি গত তিনটি প্র্যাকটিস প্রশ্নে যোগের বদলে বিয়োগ চিহ্ন ব্যবহার করেছো এবং এই অংশটি দুইবার রিক্যাপ করে দেখেছো।",
+      },
+      {
+        title: "করণীয়:",
+        body: "চলো, আমরা চিহ্ন পরিবর্তনের একটি চার্ট দেখি এবং ৩টি 'রিপেয়ার' (Repair) প্রশ্ন সমাধান করি যেন কনসেপ্টটি একদম পরিষ্কার হয়ে যায়। চলো, আমরা চিহ্ন পরিবর্তনের একটি চার্ট দেখি এবং ৩টি 'রিপেয়ার' (Repair) প্রশ্ন সমাধান করি যেন কনসেপ্টটি একদম পরিষ্কার হয়ে যায়।",
+      },
+    ],
+    suggestions: ["চিহ্ন পরিবর্তনের চার্ট", "৩টি সহজ প্র্যাকটিস", "প্রি-রিকুইজিট রিভিশন"],
+  },
+};
+
+const smartVideoAiTabs: Array<{
+  icon: IconName;
+  id: SmartVideoAiTab;
+  label: string;
+}> = [
+  { id: "understand", icon: "book", label: "বুঝিয়ে দাও" },
+  { id: "practice", icon: "check", label: "অনুশীলন" },
+  { id: "instruction", icon: "sparkle", label: "নির্দেশনা" },
+];
+
+type SmartVideoPracticeOptionState = "default" | "wrong" | "correct";
+
+type SmartVideoPracticeQuestion = {
+  answerLabel?: string;
+  explanation?: string;
+  options: Array<{ label: string; state: SmartVideoPracticeOptionState }>;
+  prompt: string;
+  separator?: boolean;
+};
+
+function SmartVideoAiTimestampList({
+  activeSegmentIndex,
+  onAiSegmentClick,
+  onSegmentSelect,
+}: {
+  activeSegmentIndex: number;
+  onAiSegmentClick: (segment: SmartVideoSegment) => void;
+  onSegmentSelect: (index: number) => void;
+}) {
+  return (
+    <div className="overflow-hidden rounded-[20px] bg-[rgba(255,255,255,0.58)] shadow-[0_1px_1px_rgba(0,0,0,0.04),0_12px_28px_rgba(28,40,50,0.08)]">
+      {smartVideoSegments.map((segment, index) => {
+        const active = index === activeSegmentIndex;
+
+        return (
+          <div
+            className={`flex h-[60px] items-center gap-3 px-2.5 transition-colors duration-200 ${
+              active ? "bg-grayui-950/10" : "hover:bg-white/50"
+            }`}
+            key={segment.title}
+          >
+            <button
+              aria-current={active ? "true" : undefined}
+              className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+              onClick={() => onSegmentSelect(index)}
+              type="button"
+            >
+              <span
+                className={`grid size-10 shrink-0 place-items-center rounded-full transition-colors duration-200 ${
+                  active ? "bg-grayui-950 text-white" : "bg-white text-grayui-900 shadow-[0_1px_2px_rgba(0,0,0,0.12)]"
+                }`}
+              >
+                <Icon className={`size-5 ${active ? "" : "translate-x-0.5"}`} name={active ? "pause" : "play"} />
+              </span>
+              <span className="rounded-md bg-grayui-200 px-1.5 py-0.5 text-sm font-medium leading-[1.4] text-grayui-700 [font-variant-numeric:tabular-nums]">
+                {segment.duration}
+              </span>
+              <span className="min-w-0 truncate text-base font-medium leading-[1.48] text-grayui-900">
+                {segment.title}
+              </span>
+            </button>
+            {active ? (
+              <AiTimestampButton onClick={() => onAiSegmentClick(segment)} segmentTitle={segment.title} />
+            ) : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function SmartVideoAiDrawer({
+  activeTab,
+  onClose,
+  onSuggestion,
+  onSegmentSelect,
+  onTabChange,
+  activeSegmentIndex,
+  segment,
+}: {
+  activeTab: SmartVideoAiTab;
+  onClose: () => void;
+  onSuggestion: (prompt: string) => void;
+  onSegmentSelect: (index: number) => void;
+  onTabChange: (tab: SmartVideoAiTab) => void;
+  activeSegmentIndex: number;
+  segment: SmartVideoSegment;
+}) {
+  const activeContent = smartVideoAiContent[activeTab];
+  const [segmentDropdownOpen, setSegmentDropdownOpen] = useState(true);
+  const renderPracticeOption = (option: SmartVideoPracticeQuestion["options"][number]) => {
+    const baseClasses =
+      "flex h-[56px] items-center justify-between gap-4 rounded-[16px] border border-[#eee] bg-white px-5 py-3";
+
+    if (option.state === "wrong") {
+      return (
+        <div className={`${baseClasses} border-[#ff6767] bg-[#fff1f1]`}>
+          <span className="font-medium text-[#070707]">{option.label}</span>
+          <span className="grid size-8 place-items-center rounded-full border-2 border-[#ff4b4b] text-[#ff4b4b]">
+            <Icon className="size-5" name="close" />
+          </span>
+        </div>
+      );
+    }
+
+    if (option.state === "correct") {
+      return (
+        <div className={`${baseClasses} border-[#1ca63e] bg-[#e8f6ec]`}>
+          <span className="font-medium text-[#070707]">{option.label}</span>
+          <span className="grid size-8 place-items-center rounded-full bg-[#1ca63e] text-white">
+            <Icon className="size-5" name="check" />
+          </span>
+        </div>
+      );
+    }
+
+    return (
+      <div className={baseClasses}>
+        <span className="font-medium text-[#070707]">{option.label}</span>
+        <span className="grid size-8 place-items-center rounded-full border-2 border-[#0f8b63] text-[#0f8b63]">
+          <span className="size-3 rounded-full border-2 border-transparent" />
+        </span>
+      </div>
+    );
+  };
+
+  return (
+    <div className="fixed inset-0 z-[95] bg-black/55 font-bengali text-grayui-950">
+      <button
+        aria-label="স্মার্ট ক্লাস প্যানেল বন্ধ করুন"
+        className="absolute inset-0 cursor-default"
+        onClick={onClose}
+        type="button"
+      />
+      <aside className="ui-slide-in-right absolute bottom-0 right-0 top-0 flex w-[720px] max-w-[min(720px,100vw)] flex-col overflow-hidden rounded-l-[20px] bg-[linear-gradient(140deg,#e7d1e5_1%,#d1d3f3_49%,#d1fbff_102%)] shadow-[-18px_0_54px_rgba(16,24,40,0.18)]">
+        <header className="flex h-[88px] shrink-0 items-center justify-between px-5">
+          <div className="flex items-center gap-4">
+            <span className="grid size-12 place-items-center rounded-2xl bg-[#023d31] shadow-[0_8px_20px_rgba(0,52,42,0.25),0_0_18px_rgba(0,98,67,0.3)]">
+              <img alt="" aria-hidden="true" className="size-9 object-contain" src="/ai-logo.svg" />
+            </span>
+            <h2 className="text-[28px] font-bold leading-[1.48] text-[#111]">স্মার্ট ক্লাস</h2>
+          </div>
+          <button
+            aria-label="স্মার্ট ক্লাস বন্ধ করুন"
+            className="ui-soft-press grid size-10 cursor-pointer place-items-center rounded-full text-grayui-700 hover:bg-white/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+            onClick={onClose}
+            type="button"
+          >
+            <Icon className="size-7" name="close" />
+          </button>
+        </header>
+
+        <div className="flex h-[60px] shrink-0 items-center justify-between bg-black/8 px-10">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="rounded-md bg-grayui-200 px-1.5 py-0.5 text-lg font-medium leading-[1.48] text-grayui-700">
+              {segment.duration}
+            </span>
+            <span className="truncate text-2xl font-medium leading-[1.48] text-grayui-900">
+              {segment.title}
+            </span>
+          </div>
+          <div className="flex items-center gap-5">
+            <span className="flex h-[30px] w-[40px] items-center justify-center rounded-lg bg-[radial-gradient(circle_at_8%_10%,#e2008d_0%,#c91aaa_25%,#b035c6_50%,#7d69ff_100%)] text-xl font-bold text-white shadow-[0_4px_10px_rgba(125,105,255,0.24)]">
+              5
+            </span>
+            <button
+              aria-label={segmentDropdownOpen ? "ভিডিয়ো সেগমেন্ট বন্ধ করুন" : "ভিডিয়ো সেগমেন্ট খুলুন"}
+              className="ui-soft-press grid size-8 cursor-pointer place-items-center rounded-full text-grayui-700 hover:bg-white/35 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+              onClick={() => setSegmentDropdownOpen((current) => !current)}
+              type="button"
+            >
+              <Icon
+                className={`size-5 transition-transform duration-200 ${
+                  segmentDropdownOpen ? "" : "rotate-180"
+                }`}
+                name="chevron-up"
+              />
+            </button>
+          </div>
+        </div>
+
+        <div className="flex min-h-0 flex-1 flex-col gap-5 px-5 py-5">
+          <div
+            className={`overflow-hidden transition-[max-height,opacity,transform,margin] duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] ${
+              segmentDropdownOpen ? "max-h-[520px] opacity-100" : "max-h-0 -translate-y-2 opacity-0"
+            }`}
+            aria-hidden={!segmentDropdownOpen}
+          >
+            <SmartVideoAiTimestampList
+              activeSegmentIndex={activeSegmentIndex}
+              onAiSegmentClick={(nextSegment) => {
+                onSegmentSelect(Math.max(0, smartVideoSegments.findIndex((item) => item.title === nextSegment.title)));
+              }}
+              onSegmentSelect={onSegmentSelect}
+            />
+          </div>
+
+          <div className="flex h-14 shrink-0 items-center rounded-full bg-white px-1 py-1.5">
+            {smartVideoAiTabs.map((tab) => {
+              const active = tab.id === activeTab;
+
+              return (
+                <button
+                  aria-pressed={active}
+                  className={`ui-soft-press flex h-12 flex-1 cursor-pointer items-center justify-center gap-2.5 rounded-full px-6 text-lg leading-[1.48] transition ${
+                    active
+                      ? "bg-[linear-gradient(78deg,#ff37df_26%,#6e00ff_100%)] font-medium text-white shadow-[0_10px_22px_rgba(143,0,255,0.22)]"
+                      : "font-medium text-grayui-900 hover:bg-grayui-100"
+                  }`}
+                  key={tab.id}
+                  onClick={() => onTabChange(tab.id)}
+                  type="button"
+                >
+                  <Icon className="size-5" name={tab.icon} />
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+            {activeTab === "understand" && activeContent.answer ? (
+              <div className="flex flex-col gap-5 pb-8">
+                <div className="text-[20px] font-normal leading-[1.48] text-[#070707]">
+                  <p className="mb-0">
+                    <span className="font-semibold">সংক্ষিপ্ত ব্যাখ্যা:</span>{" "}
+                    {activeContent.answer.summary}
+                  </p>
+                  {activeContent.answer.explanation.map((line) => (
+                    <p className="mb-0" key={line}>
+                      {line}
+                    </p>
+                  ))}
+                  <p className="mb-0 h-6" />
+                  <p className="mb-0">
+                    <span className="font-semibold">উদাহরণ:</span>{" "}
+                    {activeContent.answer.example[0]}
+                  </p>
+                  {activeContent.answer.example.slice(1).map((line) => (
+                    <p className="mb-0" key={line}>
+                      {line}
+                    </p>
+                  ))}
+                </div>
+
+                <div className="flex flex-col gap-2 border-t border-white/55 pt-5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {activeContent.suggestions.map((suggestion) => (
+                      <button
+                        className="ui-soft-press flex h-[30px] cursor-pointer items-center gap-2 rounded-full bg-white/55 px-3 text-[15px] font-medium text-[#111] hover:bg-white/75 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+                        key={suggestion}
+                        onClick={() => onSuggestion(suggestion)}
+                        type="button"
+                      >
+                        <Icon className="size-4 text-[#bc16ff]" name="arrow-curve" />
+                        {suggestion}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : activeTab === "practice" && activeContent.practice ? (
+              <div className="flex flex-col gap-6 pb-8">
+                {activeContent.practice.questions.map((question) => (
+                  <div className="flex flex-col gap-5" key={question.prompt}>
+                    <p className="text-[20px] font-semibold leading-[1.48] text-[#070707]">{question.prompt}</p>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      {question.options.map((option) => (
+                        <div key={option.label}>{renderPracticeOption(option)}</div>
+                      ))}
+                    </div>
+
+                    {question.answerLabel && question.explanation ? (
+                      <div className="flex flex-col gap-2">
+                        <div className="text-[18px] font-semibold leading-[1.48] text-[#070707]">
+                          <span>সঠিক উত্তর:</span>{" "}
+                          <span className="text-[#199738]">{question.answerLabel}</span>
+                        </div>
+                        <p className="text-[18px] font-medium leading-[1.48] text-[#070707]">
+                          <span className="font-semibold">ব্যাখ্যা:</span> {question.explanation}
+                        </p>
+                      </div>
+                    ) : null}
+
+                    {question.separator ? <div className="h-px w-full bg-white/75" /> : null}
+                  </div>
+                ))}
+
+                <div className="flex flex-wrap items-center gap-3 border-t border-white/55 pt-6">
+                  {activeContent.suggestions.map((suggestion) => (
+                    <button
+                      className="ui-soft-press flex h-[34px] cursor-pointer items-center gap-2 rounded-full bg-white/56 px-5 text-[16px] font-bold text-[#111] hover:bg-white/75 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+                      key={suggestion}
+                      onClick={() => onSuggestion(suggestion)}
+                      type="button"
+                    >
+                      <Icon className="size-5 text-[#bc16ff]" name="arrow-curve" />
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-[30px] pb-8">
+                {activeContent.sections.map((section) => (
+                  <section className="flex flex-col gap-2" key={section.title}>
+                    <h3 className="text-lg font-bold leading-[1.48] text-[#070707]">
+                      {section.title}
+                    </h3>
+                    <p className="text-lg font-normal leading-[1.48] text-[#070707]">
+                      {section.body}
+                    </p>
+                  </section>
+                ))}
+
+                <div className="flex flex-col gap-6 border-t border-white/55 pt-6">
+                  <div className="flex flex-wrap items-center gap-3">
+                    {activeContent.suggestions.map((suggestion) => (
+                      <button
+                        className="ui-soft-press flex h-[42px] cursor-pointer items-center gap-2 rounded-full bg-white/55 px-5 text-base font-bold text-[#111] hover:bg-white/75 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+                        key={suggestion}
+                        onClick={() => onSuggestion(suggestion)}
+                        type="button"
+                      >
+                        <Icon className="size-5 text-[#bc16ff]" name="arrow-curve" />
+                        {suggestion}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <p className="shrink-0 px-8 pb-5 text-center text-xs leading-[1.24] text-[#7d7d7d]">
+          AI-এর উত্তর শুধুমাত্র নির্বাচিত বিষয়বস্তুর মধ্যে সীমাবদ্ধ, AI ভুল করতে পারে। গুরুত্বপূর্ণ তথ্য যাচাই করে নিন।
+        </p>
+      </aside>
+    </div>
+  );
+}
+
+function RelatedVideoCard({ video, onSelect }: { video: SmartVideoItem; onSelect: () => void }) {
+  const tagClass =
+    video.tag === "অ্যানিমেটেড ভিডিয়ো"
+      ? "border-[#118be8] text-[#118be8]"
+      : "border-primary-500 text-primary-500";
+
+  return (
+    <button
+      className="ui-soft-press flex h-[111px] min-w-0 cursor-pointer items-center gap-6 overflow-hidden rounded-[28px] border-2 border-b-[5px] border-grayui-200 bg-white pr-6 text-left hover:border-primary-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+      onClick={onSelect}
+      type="button"
+    >
+      <span className="grid h-full w-[44%] max-w-[200px] shrink-0 place-items-center bg-gradient-to-b from-[rgba(162,50,50,0.3)] to-[rgba(60,19,19,0.3)]">
+        <span className="grid size-14 place-items-center rounded-full border border-white/80 bg-white/25 text-white">
+          <Icon className="size-7 translate-x-0.5" name="play" />
+        </span>
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col gap-2">
+        <span className={`w-fit rounded-full border px-2 py-0.5 text-xs font-medium ${tagClass}`}>
+          {video.tag}
+        </span>
+        <span className="truncate text-base font-bold text-grayui-900">{video.title}</span>
+        <span className="flex items-center gap-2 text-[15px] font-medium text-grayui-700">
+          <Icon className="size-5" name="clock" />
+          {video.duration}
+        </span>
+      </span>
+    </button>
+  );
+}
+
+function SmartVideoPlaybackScreen({
+  onBack,
+  onSelectVideo,
+  relatedVideos,
+  selectedVideo,
+}: {
+  onBack: () => void;
+  onSelectVideo: (video: SmartVideoItem) => void;
+  relatedVideos: readonly SmartVideoItem[];
+  selectedVideo: SmartVideoItem;
+}) {
+  const [playing, setPlaying] = useState(true);
+  const [muted, setMuted] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsPanel, setSettingsPanel] = useState<PlayerSettingsPanel>("root");
+  const [settingsHovering, setSettingsHovering] = useState(false);
+  const [playerHovered, setPlayerHovered] = useState(false);
+  const [smartVideoAiSegment, setSmartVideoAiSegment] = useState<SmartVideoSegment | null>(null);
+  const [smartVideoAiTab, setSmartVideoAiTab] = useState<SmartVideoAiTab>("understand");
+  const [resolution, setResolution] = useState<(typeof smartVideoResolutionOptions)[number]>("৭২০ পি.");
+  const [speed, setSpeed] = useState<(typeof smartVideoSpeedOptions)[number]>("১x (নরমাল)");
+  const [fullscreen, setFullscreen] = useState(false);
+  const [fullscreenSegmentsOpen, setFullscreenSegmentsOpen] = useState(false);
+  const [playerDuration, setPlayerDuration] = useState(0);
+  const segmentDurations = smartVideoSegments.map((segment) => parseSegmentDuration(segment.duration));
+  const segmentStartOffsets = segmentDurations.reduce<number[]>((offsets, durationInSeconds, index) => {
+    if (index === 0) return [0];
+    return [...offsets, offsets[index - 1] + segmentDurations[index - 1]];
+  }, []);
+  const fallbackDuration = segmentDurations.reduce((sum, segmentDuration) => sum + segmentDuration, 0);
+  const totalDuration = playerDuration > 0 ? playerDuration : fallbackDuration;
+  const [currentTime, setCurrentTime] = useState(segmentStartOffsets[1] ?? 0);
+  const activeSegmentIndex = Math.max(
+    0,
+    segmentStartOffsets.findLastIndex((offset) => currentTime >= offset),
+  );
+  const activeSegment = smartVideoSegments[activeSegmentIndex] ?? smartVideoSegments[0];
+  const playbackRate = parsePlaybackRate(speed);
+  const smartVideoAiSegmentIndex = smartVideoAiSegment
+    ? Math.max(
+        0,
+        smartVideoSegments.findIndex((segment) => segment.title === smartVideoAiSegment.title),
+      )
+    : 0;
+
+  useEffect(() => {
+    if (!playing) return;
+
+    const intervalId = window.setInterval(() => {
+      setCurrentTime((value) => {
+        const nextTime = Math.min(totalDuration, value + playbackRate);
+        if (nextTime >= totalDuration) {
+          window.clearInterval(intervalId);
+          setPlaying(false);
+        }
+        return nextTime;
+      });
+    }, 1000);
+
+    return () => window.clearInterval(intervalId);
+  }, [playbackRate, playing, totalDuration]);
+
+  useEffect(() => {
+    setCurrentTime(segmentStartOffsets[1] ?? 0);
+    setPlaying(true);
+    setSettingsOpen(false);
+    setFullscreen(false);
+    setFullscreenSegmentsOpen(false);
+    setSmartVideoAiSegment(null);
+    setSmartVideoAiTab("understand");
+    setPlayerDuration(0);
+  }, [selectedVideo]);
+
+  useEffect(() => {
+    if (!settingsOpen || settingsHovering) return;
+
+    const timeoutId = window.setTimeout(() => {
+      setSettingsOpen(false);
+      setSettingsPanel("root");
+    }, 2200);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [settingsHovering, settingsOpen, settingsPanel]);
+
+  const handleSeek = (nextTime: number) => {
+    setCurrentTime(Math.min(totalDuration, Math.max(0, nextTime)));
+  };
+
+  const handleSegmentSelect = (index: number) => {
+    handleSeek(segmentStartOffsets[index] ?? 0);
+    setPlaying(true);
+  };
+
+  const handlePreviousSegment = () => {
+    const currentSegmentStart = segmentStartOffsets[activeSegmentIndex] ?? 0;
+    if (currentTime - currentSegmentStart > 3) {
+      handleSeek(currentSegmentStart);
+      return;
+    }
+    handleSegmentSelect(Math.max(0, activeSegmentIndex - 1));
+  };
+
+  const handleNextSegment = () => {
+    handleSegmentSelect(Math.min(smartVideoSegments.length - 1, activeSegmentIndex + 1));
+  };
+
+  const handleSeekBackward = () => handleSeek(currentTime - 10);
+  const handleSeekForward = () => handleSeek(currentTime + 10);
+  const handlePlayerTimeChange = (value: number) => {
+    setCurrentTime((current) => (Math.abs(current - value) > 0.2 ? value : current));
+  };
+  const handleAiSegmentSelect = (index: number) => {
+    const nextSegment = smartVideoSegments[index] ?? smartVideoSegments[0];
+    setSmartVideoAiSegment(nextSegment);
+    setSmartVideoAiTab("understand");
+    handleSeek(segmentStartOffsets[index] ?? 0);
+    setPlaying(false);
+  };
+  const openSmartVideoAi = (segment: SmartVideoSegment) => {
+    const index = smartVideoSegments.findIndex((item) => item.title === segment.title);
+    handleAiSegmentSelect(index >= 0 ? index : 0);
+  };
+  const handleAiSuggestion = (suggestion: string) => {
+    if (suggestion.includes("প্র্যাকটিস") || suggestion.includes("প্রশ্ন")) {
+      setSmartVideoAiTab("practice");
+      return;
+    }
+    if (suggestion.includes("অ্যাক্টিভিটি") || suggestion.includes("হোমওয়ার্ক")) {
+      setSmartVideoAiTab("instruction");
+      return;
+    }
+    setSmartVideoAiTab("understand");
+  };
+
+  useEffect(() => {
+    document.body.style.overflow = fullscreen ? "hidden" : "";
+
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [fullscreen]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        if (smartVideoAiSegment) {
+          setSmartVideoAiSegment(null);
+          return;
+        }
+        if (settingsOpen) {
+          setSettingsOpen(false);
+          setSettingsPanel("root");
+          return;
+        }
+        if (fullscreenSegmentsOpen) {
+          setFullscreenSegmentsOpen(false);
+          return;
+        }
+        if (fullscreen) {
+          setFullscreen(false);
+          setFullscreenSegmentsOpen(false);
+        }
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [fullscreen, fullscreenSegmentsOpen, settingsOpen, smartVideoAiSegment]);
+
+  const settingsMenu = settingsOpen ? (
+    <SmartVideoSettingsMenu
+      activePanel={settingsPanel}
+      className={fullscreen ? "right-[90px] top-[92px]" : ""}
+      onClose={() => {
+        setSettingsOpen(false);
+        setSettingsPanel("root");
+      }}
+      onPanelChange={setSettingsPanel}
+      onResolutionChange={setResolution}
+      onSpeedChange={setSpeed}
+      resolution={resolution}
+      speed={speed}
+    />
+  ) : null;
+  const controlsVisible = playerHovered || settingsHovering || settingsOpen;
+
+  return (
+    <main className="min-h-dvh bg-[linear-gradient(158deg,#e3dbd9_0%,#c7dae0_100%)] font-bengali text-grayui-900">
+      <div className="mx-auto w-full max-w-[1440px] px-[50px] py-10">
+        <button
+          aria-label="স্মার্ট ভিডিয়ো তালিকায় ফিরুন"
+          className="ui-soft-press mb-[30px] grid size-10 cursor-pointer place-items-center rounded-full bg-black/28 text-white hover:bg-black/38 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+          onClick={onBack}
+          type="button"
+        >
+          <img
+            alt=""
+            aria-hidden="true"
+            className="size-7 object-contain"
+            src="/video-player-back-button.svg"
+          />
+        </button>
+
+        <div className="grid grid-cols-[minmax(0,912px)_minmax(300px,408px)] items-start gap-5">
+          <div
+            className="relative min-w-0"
+            onMouseEnter={() => setPlayerHovered(true)}
+            onMouseLeave={() => setPlayerHovered(false)}
+          >
+            <SmartVideoPlayerSurface
+              controlsVisible={controlsVisible}
+              currentTime={currentTime}
+              duration={totalDuration}
+              isFullscreen={fullscreen}
+              muted={muted}
+              onNextSegment={handleNextSegment}
+              onFullscreen={() => {
+                setFullscreen(true);
+                setFullscreenSegmentsOpen(false);
+              }}
+              onPreviousSegment={handlePreviousSegment}
+              onSeek={handleSeek}
+              onMute={() => setMuted((current) => !current)}
+              onSeekBackward={handleSeekBackward}
+              onSeekForward={handleSeekForward}
+              onSettingsMouseEnter={() => setSettingsHovering(true)}
+              onSettingsMouseLeave={() => setSettingsHovering(false)}
+              onSettings={() => {
+                setSettingsOpen((current) => !current);
+                setSettingsPanel("root");
+              }}
+              onTogglePlay={() => setPlaying((current) => !current)}
+              playing={playing}
+              segmentLabel={activeSegment.title}
+              segmentStartOffsets={segmentStartOffsets}
+              settingsOpen={settingsOpen}
+              videoLayer={
+                fullscreen ? null : (
+                  <SmartVideoYouTubePlayer
+                    currentTime={currentTime}
+                    muted={muted}
+                    onDurationChange={setPlayerDuration}
+                    onPlayingChange={setPlaying}
+                    onTimeChange={handlePlayerTimeChange}
+                    playbackRate={playbackRate}
+                    playing={playing}
+                    videoId={smartVideoYoutubeId}
+                  />
+                )
+              }
+            />
+            <div onMouseEnter={() => setSettingsHovering(true)} onMouseLeave={() => setSettingsHovering(false)}>
+              {settingsMenu}
+            </div>
+          </div>
+          <SmartVideoSegmentList
+            activeSegmentIndex={activeSegmentIndex}
+            onAiSegmentClick={openSmartVideoAi}
+            onSegmentSelect={handleSegmentSelect}
+          />
+        </div>
+
+        <section className="mt-7 grid max-w-[912px] grid-cols-[minmax(0,1fr)_180px] items-start gap-6">
+          <div className="min-w-0">
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-[#d21cff]">
+                স্মার্ট ক্লাস
+              </span>
+              <span
+                className={`rounded-full border px-3 py-1 text-sm font-medium ${
+                  selectedVideo.tag === "অ্যানিমেটেড ভিডিয়ো"
+                    ? "border-[#118be8] text-[#118be8]"
+                    : "border-primary-500 text-primary-500"
+                }`}
+              >
+                {selectedVideo.tag}
+              </span>
+              <span className="grid size-8 place-items-center rounded-full bg-[#d6aa63] text-sm font-bold text-white">
+                মি
+              </span>
+              <span className="text-sm font-medium text-grayui-900">মিস টিচার</span>
+            </div>
+            <h1 className="text-[32px] font-bold leading-[1.28] text-grayui-900">
+              প্রাচীন সভ্যতার ইতিহাস মনোযোগী হওয়া
+            </h1>
+            <div className="mt-2 flex items-center gap-3 text-base text-grayui-700">
+              <Icon className="size-4" name="clock" />
+              <span>{selectedVideo.duration}</span>
+              <span className="size-1 rounded-full bg-grayui-700" />
+              <span>বিজ্ঞান</span>
+              <span className="size-1 rounded-full bg-grayui-700" />
+              <span>বিদ্যুতের উৎস</span>
+            </div>
+          </div>
+          <button
+            className="ui-soft-press flex h-[54px] w-[180px] cursor-pointer items-center justify-center gap-3 justify-self-end rounded-[18px] border border-b-4 border-primary-500 bg-primary-50 px-4 text-lg font-bold text-primary-500 hover:bg-[#dcebe7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+            type="button"
+          >
+            <Icon className="size-5" name="bookmark" />
+            সেভ করুন
+          </button>
+        </section>
+
+        <section className="mt-[72px]">
+          <h2 className="mb-6 text-2xl font-bold text-grayui-900">এই টপিকের অন্যান্য ভিডিয়ো</h2>
+          <div className="grid grid-cols-3 gap-5">
+            {relatedVideos.slice(0, 6).map((video, index) => (
+              <RelatedVideoCard
+                key={`${video.title}-${video.tag}-${index}`}
+                onSelect={() => onSelectVideo(video)}
+                video={video}
+              />
+            ))}
+          </div>
+        </section>
+      </div>
+
+      {fullscreen ? (
+        <div onMouseEnter={() => setPlayerHovered(true)} onMouseLeave={() => setPlayerHovered(false)}>
+          <SmartVideoFullscreenOverlay
+            activeSegmentIndex={activeSegmentIndex}
+            controlsVisible={controlsVisible}
+            currentTime={currentTime}
+            duration={totalDuration}
+            muted={muted}
+            onAiSegmentClick={openSmartVideoAi}
+            onExit={() => {
+              setFullscreen(false);
+              setFullscreenSegmentsOpen(false);
+            }}
+            onMute={() => setMuted((current) => !current)}
+            onNextSegment={handleNextSegment}
+            onSegmentSelect={handleSegmentSelect}
+            onPreviousSegment={handlePreviousSegment}
+            onSeek={handleSeek}
+            onSeekBackward={handleSeekBackward}
+            onSeekForward={handleSeekForward}
+            onSettingsMouseEnter={() => setSettingsHovering(true)}
+            onSettingsMouseLeave={() => setSettingsHovering(false)}
+            onSettings={() => {
+              setSettingsOpen((current) => !current);
+              setSettingsPanel("root");
+            }}
+            onTogglePlay={() => setPlaying((current) => !current)}
+            playing={playing}
+            segmentLabel={activeSegment.title}
+            segmentStartOffsets={segmentStartOffsets}
+            segmentsOpen={fullscreenSegmentsOpen}
+            settingsMenu={settingsOpen ? settingsMenu : null}
+            settingsOpen={settingsOpen}
+            setSegmentsOpen={setFullscreenSegmentsOpen}
+            videoLayer={
+              <SmartVideoYouTubePlayer
+                currentTime={currentTime}
+                muted={muted}
+                onDurationChange={setPlayerDuration}
+                onPlayingChange={setPlaying}
+                onTimeChange={handlePlayerTimeChange}
+                playbackRate={playbackRate}
+                playing={playing}
+                videoId={smartVideoYoutubeId}
+              />
+            }
+          />
+        </div>
+      ) : null}
+      {smartVideoAiSegment ? (
+        <SmartVideoAiDrawer
+          activeTab={smartVideoAiTab}
+          activeSegmentIndex={smartVideoAiSegmentIndex}
+          onClose={() => setSmartVideoAiSegment(null)}
+          onSuggestion={handleAiSuggestion}
+          onSegmentSelect={handleAiSegmentSelect}
+          onTabChange={setSmartVideoAiTab}
+          segment={smartVideoAiSegment}
+        />
+      ) : null}
+    </main>
   );
 }
 
@@ -2343,6 +4276,7 @@ function SmartVideoScreen({ onBack }: { onBack: () => void }) {
   const [activeFilter, setActiveFilter] = useState<(typeof smartVideoFilters)[number]>(
     "সব ভিডিও",
   );
+  const [selectedVideo, setSelectedVideo] = useState<SmartVideoItem | null>(null);
 
   const handleSelectSubject = (className: string, subject: string) => {
     setSelectedClass(className);
@@ -2365,6 +4299,17 @@ function SmartVideoScreen({ onBack }: { onBack: () => void }) {
   const filteredVideos = smartVideoVideoItems.filter((video) =>
     activeFilter === "সব ভিডিও" ? true : video.tag === activeFilter,
   );
+
+  if (selectedVideo) {
+    return (
+      <SmartVideoPlaybackScreen
+        onBack={() => setSelectedVideo(null)}
+        onSelectVideo={setSelectedVideo}
+        relatedVideos={smartVideoVideoItems}
+        selectedVideo={selectedVideo}
+      />
+    );
+  }
 
   return (
     <main className="min-h-dvh bg-[linear-gradient(180deg,#d8dddf_0%,#d5e0e6_100%)] font-bengali">
@@ -2406,7 +4351,11 @@ function SmartVideoScreen({ onBack }: { onBack: () => void }) {
 
           <div className="grid w-full grid-cols-[repeat(auto-fit,minmax(400px,1fr))] gap-x-5 gap-y-5">
             {filteredVideos.map((video, index) => (
-              <SmartVideoCard key={`${video.tag}-${video.title}-${index}`} {...video} />
+              <SmartVideoCard
+                key={`${video.tag}-${video.title}-${index}`}
+                onSelect={() => setSelectedVideo(video)}
+                {...video}
+              />
             ))}
           </div>
         </div>

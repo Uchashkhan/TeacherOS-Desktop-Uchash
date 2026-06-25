@@ -78,6 +78,18 @@ button {
   }
 }
 
+@keyframes ui-slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 @keyframes ai-shimmer {
   0% {
     background-position: 180% 0;
@@ -177,6 +189,10 @@ button {
 
 .ui-slide-panel {
   animation: ui-slide-panel 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.ui-slide-in-right {
+  animation: ui-slide-in-right 240ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
 .ai-shimmer {
